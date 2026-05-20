@@ -4,7 +4,7 @@ const CONGESTED = 0.35;
 
 function isCongestedSegment(fromName: string, toName: string): boolean {
   const text = `${fromName} ${toName}`.toLowerCase();
-  return text.includes('osmeña') || text.includes('osmena') || text.includes('colon');
+  return text.includes('osmeña') || text.includes('osmena') || text.includes('colon') || text.includes('gorordo');
 }
 
 function buildSegments(waypoints: Route['waypoints']): RouteSegment[] {
@@ -36,16 +36,22 @@ export const ROUTES: Route[] = [
     segments: [],
   },
   {
-    code: '04C',
-    name: 'Lahug – Carbon (alt)',
-    color: '#4ADE80',
-    jeepCount: 5,
+    code: '62B',
+    name: 'Bacayan – Carbon',
+    color: '#A78BFA',
+    jeepCount: 4,
     waypoints: [
-      { name: 'UP Cebu', lng: 123.89778, lat: 10.31806 },
-      { name: 'F. Ramos St', lng: 123.894, lat: 10.317 },
-      { name: 'Fuente Osmeña', lng: 123.89327, lat: 10.30966 },
-      { name: 'Junquera St', lng: 123.896, lat: 10.299 },
-      { name: 'Carbon', lng: 123.89802, lat: 10.29124 },
+      { name: 'Bacayan',            lng: 123.9210, lat: 10.3864 },
+      { name: 'Talamban',           lng: 123.9120, lat: 10.3700 },
+      { name: 'USC Talamban',       lng: 123.9090, lat: 10.3615 },
+      { name: 'Country Mall',       lng: 123.8964, lat: 10.3455 },
+      { name: 'UC-Banilad',         lng: 123.9010, lat: 10.3404 },
+      { name: 'Cebu Business Park', lng: 123.9025, lat: 10.3290 },
+      { name: 'Ayala Center',       lng: 123.9050, lat: 10.3183 },
+      { name: 'Hotel Elizabeth',    lng: 123.8978, lat: 10.3177 },
+      { name: 'Sikatuna St',        lng: 123.8950, lat: 10.3040 },
+      { name: 'Colon',              lng: 123.8989, lat: 10.2967 },
+      { name: 'Carbon',             lng: 123.8980, lat: 10.2912 },
     ],
     segments: [],
   },
@@ -117,6 +123,6 @@ export const ROUTE_BY_CODE = Object.fromEntries(ROUTES.map((r) => [r.code, r])) 
   Route
 >;
 
-export const FUENTE_FALLBACK: [number, number] = [123.89327, 10.30966];
+export const FUENTE_FALLBACK: [number, number] = [123.9210, 10.3864];
 
-export const DRIVER_ROUTE_CODE = '04C';
+export const DRIVER_ROUTE_CODE = '62B';

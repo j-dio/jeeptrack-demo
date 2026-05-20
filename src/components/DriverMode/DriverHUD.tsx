@@ -44,7 +44,7 @@ export function DriverHUD({ driver }: Props) {
     >
       <div
         className="driver-hud-handle"
-        onPointerDown={(e) => dragControls.start(e)}
+        onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
         role="button"
         tabIndex={0}
         aria-label="Drag to expand passenger list"
@@ -56,7 +56,7 @@ export function DriverHUD({ driver }: Props) {
         onClick={() => setSnap(snap === 'peek' ? 'half' : snap)}
       >
         <Users size={16} strokeWidth={2.25} aria-hidden />
-        Route 04C passengers
+        Route 62B passengers
         <span className="driver-passenger-counts">
           {onboard.length} onboard · {waiting.length} waiting
         </span>

@@ -7,7 +7,7 @@ import { phrase } from '../data/microcopy';
 import type { AccelState, RouteGeometry, TripStatus } from '../types';
 
 const UI_UPDATE_MS = 2000;
-const DRIVER_ROUTE = '04C';
+const DRIVER_ROUTE = '62B';
 
 export type DriverSnapshot = {
   position: { lng: number; lat: number; bearing: number } | null;

@@ -1,4 +1,4 @@
-const CACHE_KEY = 'jt-roads-v2';
+const CACHE_KEY = 'jt-roads-v3';
 
 function loadCache(): Record<string, [number, number][]> {
   try {

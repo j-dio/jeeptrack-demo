@@ -29,6 +29,16 @@ const STOP_LABELS: Record<string, string> = {
   'SM City Cebu': 'SM Syudad',
   Talamban: 'Talamban',
   Guadalupe: 'Guadalupe',
+  'Bacayan':               'Bacayan',
+  'AS Fortuna / Foodland': 'AS Fortuna',
+  'Country Mall':          'Country Mall',
+  'Banilad':               'Banilad',
+  'USC Talamban':          'USC Talamban',
+  'UC-Banilad':            'UC Banilad',
+  'Cebu Business Park':    'Cebu Business Park',
+  'Ayala Center':          'Ayala Sentro',
+  'Sikatuna St':           'Sikatuna',
+  'Hotel Elizabeth':       'Hotel Elizabeth Cebu',
 };
 
 function toStop(wp: Waypoint): RouteStop {

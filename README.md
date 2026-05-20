@@ -54,7 +54,7 @@ Use `100dvh` layout so the map fills the screen above the iOS home indicator.
 
 - 6 routes, 20 simulated jeepneys
 - Passenger mode: route filters, bottom sheet, Bisaya status copy, fare estimates
-- Driver mode: Route 04C, trip controls, off-route simulation toast
+- Driver mode: Route 62B (Bacayan → UP Cebu), trip controls, off-route simulation toast
 - Geolocation with Fuente Osmeña fallback
 
 ## Presentation checklist

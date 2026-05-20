@@ -93,7 +93,7 @@ function CebuMapInner({
   };
 
   const pauseDriverFollow = () => {
-    followPausedUntilRef.current = performance.now() + 4_000;
+    followPausedUntilRef.current = performance.now() + 8_000;
   };
 
   useEffect(() => {
@@ -161,22 +161,15 @@ function CebuMapInner({
         features: buildJeepFeatures(jeepneys, geoms, options),
       });
 
+      const jeepLayerVisibility = options.driverMode ? 'none' : 'visible';
       if (map.getLayer('jeep-glow')) {
-        map.setPaintProperty('jeep-glow', 'circle-radius', [
-          'case',
-          ['==', ['get', 'selected'], true],
-          28,
-          ['==', ['get', 'arriving'], true],
-          22,
-          0,
-        ]);
+        map.setLayoutProperty('jeep-glow', 'visibility', jeepLayerVisibility);
       }
-
+      if (map.getLayer('jeep-circle')) {
+        map.setLayoutProperty('jeep-circle', 'visibility', jeepLayerVisibility);
+      }
       if (map.getLayer('jeep-icons')) {
-        map.setLayoutProperty('jeep-icons', 'visibility', options.driverMode ? 'none' : 'visible');
-      }
-      if (map.getLayer('jeep-glow')) {
-        map.setLayoutProperty('jeep-glow', 'visibility', options.driverMode ? 'none' : 'visible');
+        map.setLayoutProperty('jeep-icons', 'visibility', jeepLayerVisibility);
       }
 
       if (userMarkerRef.current) {
@@ -366,18 +359,49 @@ function CebuMapInner({
           data: { type: 'FeatureCollection', features: [] },
         });
 
+        // Outer diffuse glow ring — always on, larger when selected/arriving
         map.addLayer({
           id: 'jeep-glow',
           type: 'circle',
           source: 'jeeps',
           paint: {
-            'circle-radius': 0,
+            'circle-radius': [
+              'case',
+              ['==', ['get', 'selected'], true], 32,
+              ['==', ['get', 'arriving'], true], 26,
+              20,
+            ],
             'circle-color': ['get', 'color'],
-            'circle-opacity': 0.22,
-            'circle-blur': 0.6,
+            'circle-opacity': [
+              'case',
+              ['==', ['get', 'selected'], true], 0.38,
+              ['==', ['get', 'arriving'], true], 0.28,
+              0.2,
+            ],
+            'circle-blur': 0.65,
           },
         });
 
+        // Solid colored disk with white border ring
+        map.addLayer({
+          id: 'jeep-circle',
+          type: 'circle',
+          source: 'jeeps',
+          paint: {
+            'circle-radius': [
+              'interpolate', ['linear'], ['zoom'],
+              11, 9,
+              14, 13,
+              16, 16,
+            ],
+            'circle-color': ['get', 'color'],
+            'circle-opacity': ['get', 'opacity'],
+            'circle-stroke-color': 'rgba(255,255,255,0.95)',
+            'circle-stroke-width': 2.5,
+          },
+        });
+
+        // White navigation arrow on top of the disk
         map.addLayer({
           id: 'jeep-icons',
           type: 'symbol',
@@ -385,15 +409,10 @@ function CebuMapInner({
           layout: {
             'icon-image': 'jeepney',
             'icon-size': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              11,
-              0.9,
-              14,
-              1.2,
-              16,
-              1.4,
+              'interpolate', ['linear'], ['zoom'],
+              11, 0.55,
+              14, 0.72,
+              16, 0.85,
             ],
             'icon-rotate': ['get', 'bearing'],
             'icon-rotation-alignment': 'map',
@@ -401,10 +420,8 @@ function CebuMapInner({
             'icon-ignore-placement': true,
           },
           paint: {
-            'icon-color': ['get', 'color'],
+            'icon-color': 'rgba(255,255,255,0.95)',
             'icon-opacity': ['get', 'opacity'],
-            'icon-halo-color': 'rgba(255,255,255,0.92)',
-            'icon-halo-width': 2,
           },
         });
 
@@ -425,13 +442,21 @@ function CebuMapInner({
         .catch(() => finishMapSetup());
     });
 
-    map.on('click', 'jeep-icons', (e) => {
+    const handleJeepClick = (e: mapboxgl.MapMouseEvent & { features?: mapboxgl.MapboxGeoJSONFeature[] }) => {
       if (driverModeRef.current) return;
       const feature = e.features?.[0];
       const id = feature?.properties?.id;
       if (typeof id === 'string') onJeepSelectRef.current(id);
-    });
+    };
+    map.on('click', 'jeep-circle', handleJeepClick);
+    map.on('click', 'jeep-icons', handleJeepClick);
 
+    map.on('mouseenter', 'jeep-circle', () => {
+      if (!driverModeRef.current) map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'jeep-circle', () => {
+      map.getCanvas().style.cursor = '';
+    });
     map.on('mouseenter', 'jeep-icons', () => {
       if (!driverModeRef.current) map.getCanvas().style.cursor = 'pointer';
     });

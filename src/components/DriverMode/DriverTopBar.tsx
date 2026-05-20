@@ -14,7 +14,7 @@ export function DriverTopBar({ onShowIntro }: DriverTopBarProps) {
           Intro
         </button>
         <span className="driver-route-label">
-          {DRIVER_ROUTE_CODE} — {route?.name ?? 'Lahug – Carbon'}
+          {DRIVER_ROUTE_CODE} — {route?.name ?? 'Bacayan – Carbon'}
         </span>
       </div>
     </div>
