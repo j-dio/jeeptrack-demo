@@ -2,7 +2,9 @@ import type { MicrocopyKey, MicrocopyPhrase } from '../types';
 
 export const MICROCOPY: Record<MicrocopyKey, MicrocopyPhrase> = {
   arriving_soon: { bisaya: 'Hapit na!', english: 'Arriving soon' },
+  approaching: { bisaya: 'Duol na siya!', english: 'Getting closer' },
   on_way: { bisaya: 'Padulong na, huwat lang!', english: 'On its way' },
+  heading_away: { bisaya: 'Palayo na...', english: 'Heading away' },
   far: { bisaya: 'Layo pa.', english: 'Still far' },
   full: { bisaya: 'Puno na!', english: 'Full — wait for next' },
   cruising: { bisaya: 'Padayon!', english: 'Moving steadily' },
@@ -24,17 +26,25 @@ export function getPassengerStatusKey(
   congested: boolean,
   accel: string,
   deceleratingNearStop: boolean,
+  approachingUser: boolean,
+  movingTowardUser: boolean,
+  etaToUserMinutes: number | null,
 ): MicrocopyKey {
   if (full) return 'full';
   if (deceleratingNearStop || accel === 'decelerating') return 'decelerating';
   if (congested && accel !== 'stationary') return 'congestion';
   if (accel === 'stationary') return 'stationary';
   if (accel === 'accelerating') return 'accelerating';
-  if (accel === 'cruising' && etaMinutes > 10) return 'far';
-  if (etaMinutes < 1) return 'arriving_soon';
-  if (etaMinutes <= 5) return 'on_way';
-  if (etaMinutes > 10) return 'far';
-  return 'cruising';
+
+  // Neither physically closing in nor ahead of us on route → it's drifting away
+  if (!movingTowardUser && !approachingUser) return 'heading_away';
+
+  // Use ETA to the passenger when available, otherwise to next stop
+  const eta = approachingUser && etaToUserMinutes != null ? etaToUserMinutes : etaMinutes;
+  if (eta < 1) return 'arriving_soon';
+  if (eta <= 3) return 'approaching';  // "Duol na siya!"
+  if (eta <= 8) return 'on_way';
+  return 'far';
 }
 
 export function phrase(key: MicrocopyKey): MicrocopyPhrase {

@@ -34,7 +34,7 @@ export function createJeepneyFleet(routes: Route[]): Jeepney[] {
       fleet.push({
         id,
         routeCode: route.code,
-        driverName: pick(DRIVER_NAMES, globalIndex),
+        driverName: id === '62B-1' ? 'Kuya Joel' : pick(DRIVER_NAMES, globalIndex),
         plate: randomPlate(),
         unitType,
         passengers,

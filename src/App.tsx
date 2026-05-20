@@ -11,7 +11,7 @@ import { Spinner } from './components/UI/Spinner';
 import { Toast } from './components/UI/Toast';
 import { DRIVER_ROUTE_CODE, ROUTES } from './data/routes';
 import { useDriverSimulation } from './hooks/useDriverSimulation';
-import { computeJeepneyViews, jeepToView, useJeepneyViews } from './hooks/useJeepneys';
+import { computeJeepneyViews, jeepToView, useJeepneyViews, useNextIncomingJeep } from './hooks/useJeepneys';
 import { useRouteGeometries } from './hooks/useRouteGeometries';
 import { useSimulation } from './hooks/useSimulation';
 import { useUserLocation } from './hooks/useUserLocation';
@@ -52,6 +52,7 @@ export default function App() {
   const driverSim = useDriverSimulation(driverGeometry, driverMode, driverMapStateRef);
 
   const jeepViews = useJeepneyViews(jeepneysUI, geometryByCode, userLocation, routeFilter);
+  const nextIncoming = useNextIncomingJeep(jeepneysUI, geometryByCode, userLocation, routeFilter);
 
   const sheetJeeps = useMemo(() => {
     if (!selectedJeepId || jeepViews.some((j) => j.id === selectedJeepId)) return jeepViews;
@@ -76,12 +77,13 @@ export default function App() {
     setMapRenderOptions({
       visibleRoutes,
       selectedJeepId,
+      incomingJeepId: nextIncoming?.id ?? null,
       driverMode,
       driverState: null,
       userLocation,
       pulsePhase: 0,
     });
-  }, [visibleRoutes, selectedJeepId, driverMode, userLocation, setMapRenderOptions]);
+  }, [visibleRoutes, selectedJeepId, nextIncoming, driverMode, userLocation, setMapRenderOptions]);
 
   const handleJeepPress = useCallback(
     (id: string | null) => {
@@ -193,6 +195,7 @@ export default function App() {
               snap={sheetSnap}
               onSnapChange={setSheetSnap}
               lastUpdatedSec={lastUpdatedSec}
+              nextIncoming={nextIncoming}
             />
           )}
 

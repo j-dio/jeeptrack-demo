@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useDragControls, type PanInfo } from 'framer-motion';
 import { phrase } from '../../data/microcopy';
+import type { IncomingJeep } from '../../hooks/useJeepneys';
+import { ROUTE_BY_CODE } from '../../data/routes';
 import type { JeepneyView } from '../../types';
 import { JeepCard } from './JeepCard';
 
@@ -14,6 +16,7 @@ type BottomSheetProps = {
   snap: SheetSnap;
   onSnapChange: (snap: SheetSnap) => void;
   lastUpdatedSec: number;
+  nextIncoming: IncomingJeep | null;
 };
 
 /** translateY pushes sheet down; larger y = less sheet visible = more map */
@@ -31,6 +34,7 @@ export function BottomSheet({
   snap,
   onSnapChange,
   lastUpdatedSec,
+  nextIncoming,
 }: BottomSheetProps) {
   const selected = jeeps.find((j) => j.id === selectedId) ?? null;
   const noJeeps = phrase('no_jeeps');
@@ -70,6 +74,32 @@ export function BottomSheet({
           <span className="sheet-count">{nearbyCount}</span>
           <span className="sheet-summary-text"> jeepney{nearbyCount === 1 ? '' : 's'} nearby</span>
         </p>
+        <AnimatePresence>
+          {nextIncoming && (
+            <motion.div
+              key="incoming-banner"
+              className="incoming-banner"
+              style={{ borderColor: ROUTE_BY_CODE[nextIncoming.routeCode]?.color }}
+              initial={{ opacity: 0, y: -6, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -6, height: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <span
+                className="incoming-banner-dot"
+                style={{ backgroundColor: ROUTE_BY_CODE[nextIncoming.routeCode]?.color }}
+              />
+              <span className="incoming-banner-text">
+                Next{' '}
+                <strong style={{ color: ROUTE_BY_CODE[nextIncoming.routeCode]?.color }}>
+                  {nextIncoming.routeCode}
+                </strong>{' '}
+                arriving at your stop in{' '}
+                <strong>{nextIncoming.etaMinutes} min</strong>
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <div className="bottom-sheet-body">

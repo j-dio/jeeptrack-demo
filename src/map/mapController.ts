@@ -21,6 +21,7 @@ export type DriverMapState = {
 export type MapRenderOptions = {
   visibleRoutes: Set<string> | 'all';
   selectedJeepId: string | null;
+  incomingJeepId: string | null;
   driverMode: boolean;
   driverState: DriverMapState | null;
   userLocation: { lng: number; lat: number };
@@ -43,7 +44,7 @@ export function buildJeepFeatures(
   _geometries: RouteGeometry[],
   options: MapRenderOptions,
 ): Feature[] {
-  const { visibleRoutes, selectedJeepId, driverMode } = options;
+  const { visibleRoutes, selectedJeepId, incomingJeepId, driverMode } = options;
   const features: Feature[] = [];
 
   for (const jeep of jeepneys) {
@@ -69,7 +70,7 @@ export function buildJeepFeatures(
         selected: jeep.id === selectedJeepId,
         bearing: jeep.bearing ?? 0,
         decelerating: jeep.deceleratingNearStop,
-        arriving: jeep.deceleratingNearStop && jeep.speedKmh < 15,
+        arriving: (jeep.deceleratingNearStop && jeep.speedKmh < 15) || jeep.id === incomingJeepId,
       },
       geometry: {
         type: 'Point',

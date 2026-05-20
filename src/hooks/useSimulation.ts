@@ -59,7 +59,14 @@ export function useSimulation(
     jeepneysRef.current = fleet.map((jeep) => {
       const geometry = geometryByCode[jeep.routeCode];
       if (!geometry) return jeep;
-      const distanceAlongKm = Math.random() * geometry.pathLengthKm * 0.92;
+      // Kuya Joel starts at km 0.4 — behind the passenger at km ~1.3 (approaching).
+      // Other 62B jeeps start past km 2.0 so they've already passed the passenger (heading away).
+      const distanceAlongKm =
+        jeep.id === '62B-1'
+          ? 0.4
+          : jeep.routeCode === '62B'
+            ? 2.0 + Math.random() * (geometry.pathLengthKm * 0.6)
+            : Math.random() * geometry.pathLengthKm * 0.92;
       const pos = positionAlong(geometry, 'outbound', distanceAlongKm);
       return {
         ...jeep,

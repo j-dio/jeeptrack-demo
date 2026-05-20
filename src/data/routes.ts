@@ -123,6 +123,8 @@ export const ROUTE_BY_CODE = Object.fromEntries(ROUTES.map((r) => [r.code, r])) 
   Route
 >;
 
-export const FUENTE_FALLBACK: [number, number] = [123.9210, 10.3864];
+// ~1.3 km into the 62B route (Bacayan–Talamban stretch), keeping user in Bacayan area
+// while leaving room for Kuya Joel (at km 0.4) to approach from behind
+export const FUENTE_FALLBACK: [number, number] = [123.9153, 10.3761];
 
 export const DRIVER_ROUTE_CODE = '62B';

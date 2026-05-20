@@ -17,7 +17,7 @@ type JeepCardProps = {
 export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail, onBack }: JeepCardProps) {
   const route = ROUTE_BY_CODE[jeep.routeCode];
   const copy = phrase(jeep.statusKey);
-  const pulse = jeep.statusKey === 'arriving_soon';
+  const pulse = jeep.statusKey === 'arriving_soon' || jeep.statusKey === 'approaching';
 
   if (detail) {
     return (
@@ -48,7 +48,11 @@ export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail, onB
         <div className="jeep-detail-grid">
           <Stat label="Speed" value={`${Math.round(jeep.speedKmh)} km/h`} />
           <Stat label="Heading" value={`${Math.round(jeep.bearing)}°`} />
-          <Stat label="ETA" value={`${jeep.etaMinutes} min`} />
+          {jeep.approachingUser && jeep.etaToUserMinutes != null ? (
+            <Stat label="ETA to you" value={`${jeep.etaToUserMinutes} min`} highlight />
+          ) : (
+            <Stat label="ETA next stop" value={`${jeep.etaMinutes} min`} />
+          )}
           <Stat label="Next stop" value={jeep.nextStopName} />
           <Stat label="Fare est." value={formatFare(jeep.fareEstimate)} />
           <Stat label="Passengers" value={`${jeep.passengers}/${jeep.maxPassengers}`} />
@@ -82,7 +86,11 @@ export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail, onB
           <span className="status-english">{copy.english}</span>
         </span>
         <span className="jeep-card-meta">
-          <span className="jeep-card-eta">{jeep.etaMinutes} min</span>
+          <span className="jeep-card-eta">
+            {jeep.approachingUser && jeep.etaToUserMinutes != null
+              ? `${jeep.etaToUserMinutes} min to you`
+              : `${jeep.etaMinutes} min`}
+          </span>
           <span className="jeep-card-meta-muted">
             · {Math.round(jeep.speedKmh)} km/h · {formatFare(jeep.fareEstimate)}
           </span>
@@ -92,9 +100,9 @@ export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail, onB
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="jeep-stat">
+    <div className={`jeep-stat${highlight ? ' jeep-stat--highlight' : ''}`}>
       <span className="jeep-stat-label">{label}</span>
       <span className="jeep-stat-value">{value}</span>
     </div>

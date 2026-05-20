@@ -6,6 +6,79 @@ import type { Jeepney, JeepneyView, RouteGeometry, UserLocation } from '../types
 import { estimateFare } from '../utils/fare';
 import { distanceKm, nearestStopDistanceKm } from '../utils/geometry';
 
+export type IncomingJeep = {
+  id: string;
+  routeCode: string;
+  etaMinutes: number;
+};
+
+// Cache projections so we don't call turf on every tick for stable user positions.
+const userPosCache = new Map<string, number>();
+
+function getUserPosOnRoute(user: UserLocation, geometry: RouteGeometry): number {
+  const key = `${geometry.route.code}:${user.lng.toFixed(4)},${user.lat.toFixed(4)}`;
+  const hit = userPosCache.get(key);
+  if (hit !== undefined) return hit;
+  const line = turf.lineString(geometry.coordinates);
+  const origin = turf.point(geometry.coordinates[0]);
+  const nearest = turf.nearestPointOnLine(line, turf.point([user.lng, user.lat]));
+  const pos = turf.length(turf.lineSlice(origin, nearest, line), { units: 'kilometers' });
+  userPosCache.set(key, pos);
+  return pos;
+}
+
+export function computeNextIncomingJeep(
+  jeepneys: Jeepney[],
+  geometryByCode: Record<string, RouteGeometry>,
+  user: UserLocation,
+  routeCode: string,
+): IncomingJeep | null {
+  const geometry = geometryByCode[routeCode];
+  if (!geometry) return null;
+  const userPosKm = getUserPosOnRoute(user, geometry);
+  let best: { jeep: Jeepney; eta: number } | null = null;
+
+  for (const jeep of jeepneys) {
+    if (jeep.routeCode !== routeCode) continue;
+    const speed = Math.max(jeep.speedKmh, 8);
+    let eta: number;
+
+    if (jeep.direction === 'outbound') {
+      const remaining = userPosKm - jeep.distanceAlongKm;
+      if (remaining <= 0) continue; // already passed the user's stop
+      eta = Math.max(1, Math.round((remaining / speed) * 60));
+    } else {
+      // Inbound: finish the return leg (distanceAlongKm → 0 = back at route start),
+      // then travel outbound from start to user's stop.
+      eta = Math.max(1, Math.round(((jeep.distanceAlongKm + userPosKm) / speed) * 60));
+    }
+
+    if (!best || eta < best.eta) best = { jeep, eta };
+  }
+
+  return best ? { id: best.jeep.id, routeCode: best.jeep.routeCode, etaMinutes: best.eta } : null;
+}
+
+export function useNextIncomingJeep(
+  jeepneys: Jeepney[],
+  geometryByCode: Record<string, RouteGeometry>,
+  user: UserLocation,
+  routeFilter: string | 'all',
+): IncomingJeep | null {
+  return useMemo(() => {
+    const codes =
+      routeFilter === 'all'
+        ? [...new Set(jeepneys.map((j) => j.routeCode))]
+        : [routeFilter];
+    let best: IncomingJeep | null = null;
+    for (const code of codes) {
+      const candidate = computeNextIncomingJeep(jeepneys, geometryByCode, user, code);
+      if (candidate && (!best || candidate.etaMinutes < best.etaMinutes)) best = candidate;
+    }
+    return best;
+  }, [jeepneys, geometryByCode, user, routeFilter]);
+}
+
 const NEARBY_KM = 2;
 
 // Stop locations along each route are precomputed once per geometry object.
@@ -65,16 +138,38 @@ export function jeepToView(
   const fareEstimate = estimateFare(fareKm, jeep.unitType);
   const full = jeep.passengers >= jeep.maxPassengers;
   const congested = jeep.speedKmh < jeep.baseSpeedKmh * 0.45;
+
+  let etaToUserMinutes: number | null = null;
+  let approachingUser = false;
+  if (geometry && jeep.direction === 'outbound') {
+    const userPosKm = getUserPosOnRoute(user, geometry);
+    const remaining = userPosKm - jeep.distanceAlongKm;
+    if (remaining > 0) {
+      etaToUserMinutes = Math.max(1, Math.round((remaining / Math.max(jeep.speedKmh, 8)) * 60));
+      approachingUser = true;
+    }
+  }
+
+  const prevDistToUser = distanceKm([jeep.prevLng, jeep.prevLat], userPt);
+  const movingTowardUser = distToUser < prevDistToUser;
+
   const statusKey = getPassengerStatusKey(
     etaMinutes,
     full,
     congested,
     jeep.accelState,
     jeep.deceleratingNearStop,
+    approachingUser,
+    movingTowardUser,
+    etaToUserMinutes,
   );
+
   return {
     ...jeep,
     etaMinutes,
+    etaToUserMinutes,
+    approachingUser,
+    movingTowardUser,
     fareEstimate,
     statusKey,
     nextStopName: next.name,
@@ -103,17 +198,38 @@ export function computeJeepneyViews(
         const fareEstimate = estimateFare(fareKm, jeep.unitType);
         const full = jeep.passengers >= jeep.maxPassengers;
         const congested = jeep.speedKmh < jeep.baseSpeedKmh * 0.45;
+
+        let etaToUserMinutes: number | null = null;
+        let approachingUser = false;
+        if (geometry && jeep.direction === 'outbound') {
+          const userPosKm = getUserPosOnRoute(user, geometry);
+          const remaining = userPosKm - jeep.distanceAlongKm;
+          if (remaining > 0) {
+            etaToUserMinutes = Math.max(1, Math.round((remaining / Math.max(jeep.speedKmh, 8)) * 60));
+            approachingUser = true;
+          }
+        }
+
+        const prevDistToUser = distanceKm([jeep.prevLng, jeep.prevLat], userPt);
+        const movingTowardUser = distToUser < prevDistToUser;
+
         const statusKey = getPassengerStatusKey(
           etaMinutes,
           full,
           congested,
           jeep.accelState,
           jeep.deceleratingNearStop,
+          approachingUser,
+          movingTowardUser,
+          etaToUserMinutes,
         );
 
         return {
           ...jeep,
           etaMinutes,
+          etaToUserMinutes,
+          approachingUser,
+          movingTowardUser,
           fareEstimate,
           statusKey,
           nextStopName: next.name,

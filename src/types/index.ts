@@ -58,7 +58,9 @@ export type RouteGeometry = {
 
 export type MicrocopyKey =
   | 'arriving_soon'
+  | 'approaching'
   | 'on_way'
+  | 'heading_away'
   | 'far'
   | 'full'
   | 'cruising'
@@ -83,6 +85,9 @@ export type UserLocation = {
 
 export type JeepneyView = Jeepney & {
   etaMinutes: number;
+  etaToUserMinutes: number | null;
+  approachingUser: boolean;
+  movingTowardUser: boolean;
   fareEstimate: number;
   statusKey: MicrocopyKey;
   nextStopName: string;
