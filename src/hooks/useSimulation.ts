@@ -7,6 +7,7 @@ import type { Jeepney, RouteGeometry } from '../types';
 import { getCongestionAtKm } from '../utils/geometry';
 
 const UI_UPDATE_MS = 2000;
+const SYNC_INTERVAL_MS = 66; // ~15 Hz — throttles GeoJSON pushes to Mapbox
 
 function getLineForDirection(geometry: RouteGeometry, direction: Jeepney['direction']) {
   if (direction === 'outbound') return turf.lineString(geometry.coordinates);
@@ -46,6 +47,7 @@ export function useSimulation(
   const initializedRef = useRef(false);
   const mapRenderOptionsRef = useRef<MapRenderOptions | null>(null);
   const lastUIUpdateRef = useRef(0);
+  const lastSyncRef = useRef(0);
   const pulsePhaseRef = useRef(0);
   const rafRef = useRef<number>(0);
   const lastFrameRef = useRef<number | null>(null);
@@ -155,7 +157,8 @@ export function useSimulation(
 
       const controller = mapControllerRef.current;
       const renderOpts = mapRenderOptionsRef.current;
-      if (controller?.isReady() && renderOpts) {
+      if (controller?.isReady() && renderOpts && now - lastSyncRef.current >= SYNC_INTERVAL_MS) {
+        lastSyncRef.current = now;
         const driverState = renderOpts.driverMode ? driverMapStateRef.current : null;
         controller.sync(updated, {
           ...renderOpts,

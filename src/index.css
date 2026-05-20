@@ -107,7 +107,14 @@ body {
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.logo-img {
+  height: 48px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 1px 8px rgba(0, 0, 0, 0.6));
 }
 
 .logo-mark {
@@ -125,8 +132,21 @@ body {
 
 .logo-text {
   font-weight: 700;
-  font-size: 15px;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+}
+
+.logo-text-jeep {
+  color: #0099ff;
+}
+
+.logo-text-track {
+  color: #0a3d62;
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.35),
+    0 1px 10px rgba(0, 0, 0, 0.75);
 }
 
 .route-chips {
@@ -611,7 +631,7 @@ body {
   pointer-events: none;
 }
 
-.driver-vehicle-inner {
+.driver-vehicle-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -620,6 +640,9 @@ body {
   border-radius: 12px;
   padding: 6px 12px 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.driver-vehicle-inner {
   transform-origin: center center;
 }
 

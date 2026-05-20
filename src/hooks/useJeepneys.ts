@@ -8,32 +8,42 @@ import { distanceKm, nearestStopDistanceKm } from '../utils/geometry';
 
 const NEARBY_KM = 2;
 
+// Stop locations along each route are precomputed once per geometry object.
+// This eliminates O(N) nearestPointOnLine + lineSlice calls on every tick.
+const stopLocsByGeometry = new WeakMap<RouteGeometry, number[]>();
+
+function getStopLocs(geometry: RouteGeometry): number[] {
+  const cached = stopLocsByGeometry.get(geometry);
+  if (cached) return cached;
+  const stops = STOPS_BY_ROUTE[geometry.route.code] ?? [];
+  const line = turf.lineString(geometry.coordinates);
+  const origin = turf.point(geometry.coordinates[0]);
+  const locs = stops.map((stop) => {
+    const along = turf.nearestPointOnLine(line, turf.point([stop.lng, stop.lat]));
+    return turf.length(turf.lineSlice(origin, along, line), { units: 'kilometers' });
+  });
+  stopLocsByGeometry.set(geometry, locs);
+  return locs;
+}
+
 function nextStopForJeep(jeep: Jeepney, geometry: RouteGeometry) {
   const stops = STOPS_BY_ROUTE[jeep.routeCode] ?? [];
-  const line = turf.lineString(geometry.coordinates);
-  const jeepPoint = turf.point([jeep.lng, jeep.lat]);
+  const stopLocs = getStopLocs(geometry);
+  // Use the already-computed distance rather than projecting back onto the line.
+  const jeepLoc =
+    jeep.direction === 'outbound'
+      ? jeep.distanceAlongKm
+      : geometry.pathLengthKm - jeep.distanceAlongKm;
 
   let best: { name: string; distanceKm: number } | null = null;
 
-  for (const stop of stops) {
-    const stopPoint = turf.point([stop.lng, stop.lat]);
-    const alongJeep = turf.nearestPointOnLine(line, jeepPoint);
-    const alongStop = turf.nearestPointOnLine(line, stopPoint);
-    const jeepLoc = turf.length(
-      turf.lineSlice(turf.point(geometry.coordinates[0]), alongJeep, line),
-      { units: 'kilometers' },
-    );
-    const stopLoc = turf.length(
-      turf.lineSlice(turf.point(geometry.coordinates[0]), alongStop, line),
-      { units: 'kilometers' },
-    );
-
+  for (let i = 0; i < stops.length; i++) {
+    const stopLoc = stopLocs[i];
     if (jeep.direction === 'outbound' && stopLoc <= jeepLoc) continue;
     if (jeep.direction === 'inbound' && stopLoc >= jeepLoc) continue;
-
     const dist = Math.abs(stopLoc - jeepLoc);
     if (!best || dist < best.distanceKm) {
-      best = { name: stop.bisayaLabel, distanceKm: dist };
+      best = { name: stops[i].bisayaLabel, distanceKm: dist };
     }
   }
 

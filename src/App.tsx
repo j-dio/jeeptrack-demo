@@ -13,7 +13,7 @@ import { computeJeepneyViews, jeepToView, useJeepneyViews } from './hooks/useJee
 import { useRouteGeometries } from './hooks/useRouteGeometries';
 import { useSimulation } from './hooks/useSimulation';
 import { useUserLocation } from './hooks/useUserLocation';
-import type { DriverMapState, MapController, MapRenderOptions } from './map/mapController';
+import type { DriverMapState, MapController } from './map/mapController';
 import type { AppMode, MicrocopyKey } from './types';
 
 const CebuMap = lazy(() =>
@@ -70,24 +70,16 @@ export default function App() {
     return new Set([routeFilter]);
   }, [routeFilter]);
 
-  const mapRenderOptionsRef = useRef<MapRenderOptions>({
-    visibleRoutes: 'all',
-    selectedJeepId: null,
-    driverMode: false,
-    driverState: null,
-    userLocation: { lng: 0, lat: 0 },
-    pulsePhase: 0,
-  });
-
-  mapRenderOptionsRef.current = {
-    visibleRoutes,
-    selectedJeepId,
-    driverMode,
-    driverState: null,
-    userLocation,
-    pulsePhase: 0,
-  };
-  setMapRenderOptions(mapRenderOptionsRef.current);
+  useEffect(() => {
+    setMapRenderOptions({
+      visibleRoutes,
+      selectedJeepId,
+      driverMode,
+      driverState: null,
+      userLocation,
+      pulsePhase: 0,
+    });
+  }, [visibleRoutes, selectedJeepId, driverMode, userLocation, setMapRenderOptions]);
 
   const handleJeepPress = useCallback(
     (id: string | null) => {
@@ -179,8 +171,19 @@ export default function App() {
             <header className="top-bar">
               <div className="top-bar-row">
                 <div className="logo">
-                  <span className="logo-mark">JT</span>
-                  <span className="logo-text">JeepTrack</span>
+                  <img
+                    src="/jt-logo.svg"
+                    alt=""
+                    className="logo-img"
+                    width={160}
+                    height={48}
+                    decoding="async"
+                    aria-hidden
+                  />
+                  <span className="logo-text" aria-label="JeepTrack">
+                    <span className="logo-text-jeep">Jeep</span>
+                    <span className="logo-text-track">Track</span>
+                  </span>
                 </div>
                 <button
                   type="button"

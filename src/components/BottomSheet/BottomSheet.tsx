@@ -37,9 +37,11 @@ export function BottomSheet({
   const dragControls = useDragControls();
 
   const handleDragEnd = (_e: PointerEvent, info: PanInfo) => {
-    if (info.offset.y < -60) {
+    const flickUp = info.velocity.y < -250 || info.offset.y < -40;
+    const flickDown = info.velocity.y > 250 || info.offset.y > 40;
+    if (flickUp) {
       onSnapChange(snap === 'peek' ? 'half' : 'full');
-    } else if (info.offset.y > 60) {
+    } else if (flickDown) {
       onSnapChange(snap === 'full' ? 'half' : 'peek');
     }
   };

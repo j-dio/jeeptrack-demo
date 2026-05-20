@@ -31,10 +31,13 @@ function offsetBehind(lng: number, lat: number, bearingDeg: number, km: number):
 function createDriverMarkerElement(): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'driver-vehicle-marker';
+  // .driver-vehicle-inner rotates with bearing; label is a sibling so it stays upright.
   el.innerHTML = `
-    <div class="driver-vehicle-inner flex flex-col items-center rounded-xl border-2 border-[#fcd116] bg-white px-3 py-1.5 shadow-lg drop-shadow-md">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ce1126" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19l-2 7H4l-2-7Z"/><path d="M7 18v2"/><path d="M17 18v2"/></svg>
-      <span class="text-xs font-extrabold text-[#0a0f1e] tracking-wide">${DRIVER_ROUTE_CODE}</span>
+    <div class="driver-vehicle-card flex flex-col items-center rounded-xl border-2 border-[#fcd116] bg-white px-3 py-1.5 shadow-lg drop-shadow-md">
+      <div class="driver-vehicle-inner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ce1126" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19l-2 7H4l-2-7Z"/><path d="M7 18v2"/><path d="M17 18v2"/></svg>
+      </div>
+      <span class="driver-vehicle-code">${DRIVER_ROUTE_CODE}</span>
     </div>
   `;
   return el;
@@ -102,13 +105,15 @@ function CebuMapInner({
       zoom: 13,
       pitch: 35,
       attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
     });
+    map.touchZoomRotate.disableRotation();
 
     const pauseFollow = () => pauseDriverFollow();
     map.on('dragstart', pauseFollow);
     map.on('zoomstart', pauseFollow);
-    map.on('rotatestart', pauseFollow);
-    map.on('pitchstart', pauseFollow);
 
     const applyRouteStyles = (options: MapRenderOptions) => {
       const geoms = geometriesRef.current;
@@ -198,9 +203,13 @@ function CebuMapInner({
           driverMarkerRef.current.setLngLat([lng, lat]);
         }
 
-        const inner = driverMarkerRef.current.getElement().querySelector('.driver-vehicle-inner');
-        if (inner instanceof HTMLElement) {
-          inner.style.transform = `rotate(${bearing}deg)`;
+        const inner = driverMarkerRef.current.getElement().querySelector<HTMLElement>('.driver-vehicle-inner');
+        if (inner) {
+          const rounded = Math.round(bearing);
+          if (inner.dataset.bearing !== String(rounded)) {
+            inner.dataset.bearing = String(rounded);
+            inner.style.transform = `rotate(${bearing}deg)`;
+          }
         }
 
         const tripActive = options.driverState.tripActive;
@@ -396,8 +405,6 @@ function CebuMapInner({
     return () => {
       map.off('dragstart', pauseFollow);
       map.off('zoomstart', pauseFollow);
-      map.off('rotatestart', pauseFollow);
-      map.off('pitchstart', pauseFollow);
       userMarkerRef.current?.remove();
       driverMarkerRef.current?.remove();
       waitingMarkersRef.current.forEach((m) => m.remove());

@@ -26,48 +26,25 @@ function randomWaitingCounts(stopCount: number): number[] {
   return Array.from({ length: stopCount }, () => Math.floor(Math.random() * 8));
 }
 
-function findNextStop(geometry: RouteGeometry, distanceKm: number) {
+// Pure helpers that take precomputed stopLocs — no turf calls per frame.
+function findNextStop(
+  distanceKm: number,
+  stopLocs: number[],
+): { name: string; distanceKm: number } {
   const stops = STOPS_BY_ROUTE[DRIVER_ROUTE] ?? [];
-  const line = turf.lineString(geometry.coordinates);
   let best: { name: string; distanceKm: number } | null = null;
-
-  for (const stop of stops) {
-    const stopPoint = turf.point([stop.lng, stop.lat]);
-    const alongStop = turf.nearestPointOnLine(line, stopPoint);
-    const stopLoc = turf.length(
-      turf.lineSlice(turf.point(geometry.coordinates[0]), alongStop, line),
-      { units: 'kilometers' },
-    );
-    if (stopLoc <= distanceKm + 0.02) continue;
-    const dist = stopLoc - distanceKm;
+  for (let i = 0; i < stopLocs.length; i++) {
+    if (stopLocs[i] <= distanceKm + 0.02) continue;
+    const dist = stopLocs[i] - distanceKm;
     if (!best || dist < best.distanceKm) {
-      best = { name: stop.bisayaLabel, distanceKm: dist };
+      best = { name: stops[i]?.bisayaLabel ?? 'Stop', distanceKm: dist };
     }
   }
-
   return best ?? { name: stops[stops.length - 1]?.bisayaLabel ?? 'Carbon', distanceKm: 0.3 };
 }
 
-function waitingAhead(
-  geometry: RouteGeometry,
-  distanceKm: number,
-  counts: number[],
-): number {
-  const stops = STOPS_BY_ROUTE[DRIVER_ROUTE] ?? [];
-  const line = turf.lineString(geometry.coordinates);
-  let sum = 0;
-
-  stops.forEach((stop, i) => {
-    const stopPoint = turf.point([stop.lng, stop.lat]);
-    const alongStop = turf.nearestPointOnLine(line, stopPoint);
-    const stopLoc = turf.length(
-      turf.lineSlice(turf.point(geometry.coordinates[0]), alongStop, line),
-      { units: 'kilometers' },
-    );
-    if (stopLoc > distanceKm) sum += counts[i] ?? 0;
-  });
-
-  return sum;
+function waitingAhead(distanceKm: number, counts: number[], stopLocs: number[]): number {
+  return stopLocs.reduce((sum, loc, i) => (loc > distanceKm ? sum + (counts[i] ?? 0) : sum), 0);
 }
 
 export function useDriverSimulation(
@@ -78,6 +55,8 @@ export function useDriverSimulation(
   const distanceKmRef = useRef(0);
   const offRouteOffsetRef = useRef<[number, number] | null>(null);
   const lastFrameRef = useRef<number | null>(null);
+  const stopLocsRef = useRef<number[]>([]);
+  const lineRef = useRef<ReturnType<typeof turf.lineString> | null>(null);
   const snapshotRef = useRef<DriverSnapshot>({
     position: null,
     speedKmh: 0,
@@ -99,11 +78,28 @@ export function useDriverSimulation(
   );
   const lastUIUpdateRef = useRef(0);
 
+  // Precompute stop locations once per geometry — eliminates per-frame turf calls.
+  useEffect(() => {
+    if (!geometry) {
+      stopLocsRef.current = [];
+      lineRef.current = null;
+      return;
+    }
+    const line = turf.lineString(geometry.coordinates);
+    lineRef.current = line;
+    const stops = STOPS_BY_ROUTE[DRIVER_ROUTE] ?? [];
+    const origin = turf.point(geometry.coordinates[0]);
+    stopLocsRef.current = stops.map((stop) => {
+      const along = turf.nearestPointOnLine(line, turf.point([stop.lng, stop.lat]));
+      return turf.length(turf.lineSlice(origin, along, line), { units: 'kilometers' });
+    });
+  }, [geometry]);
+
   const recomputeSnapshot = useCallback(
     (now: number) => {
       if (!geometry) return;
 
-      const line = turf.lineString(geometry.coordinates);
+      const line = lineRef.current ?? turf.lineString(geometry.coordinates);
       const point = turf.along(line, distanceKmRef.current, { units: 'kilometers' });
       let [lng, lat] = point.geometry.coordinates;
       const look = turf.along(
@@ -122,7 +118,7 @@ export function useDriverSimulation(
       const accelState: AccelState = tripActive ? 'cruising' : 'stationary';
       const statusKey = tripActive ? 'cruising' : 'stationary';
       const copy = phrase(statusKey);
-      const next = findNextStop(geometry, distanceKmRef.current);
+      const next = findNextStop(distanceKmRef.current, stopLocsRef.current);
       const stops = STOPS_BY_ROUTE[DRIVER_ROUTE] ?? [];
       const waitingByStop = stops.map((stop, i) => ({
         lng: stop.lng,
@@ -149,7 +145,7 @@ export function useDriverSimulation(
         nextStopDistanceKm: next.distanceKm,
         waitingByStop,
         waitingAhead: tripActive
-          ? waitingAhead(geometry, distanceKmRef.current, stopCountsRef.current)
+          ? waitingAhead(distanceKmRef.current, stopCountsRef.current, stopLocsRef.current)
           : 0,
         tripActive,
         isOffRoute,
