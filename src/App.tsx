@@ -10,6 +10,7 @@ import { Toast } from './components/UI/Toast';
 import { DRIVER_ROUTE_CODE, ROUTES } from './data/routes';
 import { useDriverSimulation } from './hooks/useDriverSimulation';
 import { computeJeepneyViews, jeepToView, useJeepneyViews } from './hooks/useJeepneys';
+import { useRouteGeometries } from './hooks/useRouteGeometries';
 import { useSimulation } from './hooks/useSimulation';
 import { useUserLocation } from './hooks/useUserLocation';
 import type { DriverMapState, MapController, MapRenderOptions } from './map/mapController';
@@ -26,8 +27,15 @@ export default function App() {
   const mapControllerRef = useRef<MapController | null>(null);
   const driverMapStateRef = useRef<DriverMapState | null>(null);
 
-  const { jeepneysUI, getJeepneys, geometries, geometryByCode, setMapRenderOptions } =
-    useSimulation(mapControllerRef, driverMapStateRef);
+  const { geometries, geometryByCode, isLoading: routesLoading } = useRouteGeometries();
+
+  const { jeepneysUI, getJeepneys, setMapRenderOptions } = useSimulation(
+    mapControllerRef,
+    driverMapStateRef,
+    geometries,
+    geometryByCode,
+  );
+
   const userLocation = useUserLocation();
   const lastUpdatedSec = useLastUpdatedSec(jeepneysUI);
 
@@ -41,7 +49,9 @@ export default function App() {
     const allViews = computeJeepneyViews(jeepneysUI, geometryByCode, userLocation, 'all');
     const found = allViews.find((j) => j.id === selectedJeepId);
     if (!found) {
-      const jeep = jeepneysUI.find((j) => j.id === selectedJeepId) ?? getJeepneys().find((j) => j.id === selectedJeepId);
+      const jeep =
+        jeepneysUI.find((j) => j.id === selectedJeepId) ??
+        getJeepneys().find((j) => j.id === selectedJeepId);
       if (!jeep) return jeepViews;
       return [jeepToView(jeep, geometryByCode, userLocation), ...jeepViews];
     }
@@ -85,10 +95,23 @@ export default function App() {
     return () => cancelAnimationFrame(raf);
   }, [driverMode, driverSim]);
 
-  const handleJeepSelect = useCallback((id: string) => {
-    setSelectedJeepId(id);
-    setSheetSnap('half');
-  }, []);
+  /** First tap: select + half sheet. Second tap on same jeep: open detail. */
+  const handleJeepPress = useCallback(
+    (id: string | null) => {
+      if (id === null) {
+        setSelectedJeepId(null);
+        setSheetSnap('half');
+        return;
+      }
+      if (selectedJeepId === id && sheetSnap !== 'full') {
+        setSheetSnap('full');
+        return;
+      }
+      setSelectedJeepId(id);
+      setSheetSnap('half');
+    },
+    [selectedJeepId, sheetSnap],
+  );
 
   useEffect(() => {
     if (!selectedJeepId || driverMode) return;
@@ -100,9 +123,7 @@ export default function App() {
   }, [selectedJeepId, driverMode, jeepneysUI, getJeepneys]);
 
   useEffect(() => {
-    if (driverSim.driverUI.isOffRoute) {
-      setToastKey('off_route');
-    }
+    if (driverSim.driverUI.isOffRoute) setToastKey('off_route');
   }, [driverSim.driverUI.isOffRoute]);
 
   useEffect(() => {
@@ -112,9 +133,7 @@ export default function App() {
     }
   }, [mode]);
 
-  const tokenMissing = !import.meta.env.VITE_MAPBOX_TOKEN;
-
-  if (tokenMissing) {
+  if (!import.meta.env.VITE_MAPBOX_TOKEN) {
     return (
       <div className="app-shell token-missing">
         <h1>Mapbox token required</h1>
@@ -126,58 +145,67 @@ export default function App() {
     );
   }
 
+  const showSpinner = routesLoading || !mapReady;
+
   return (
     <div className="app-shell">
-      {!mapReady && <Spinner />}
+      {showSpinner && <Spinner />}
 
-      <CebuMap
-        geometries={geometries}
-        mapControllerRef={mapControllerRef}
-        mapRenderOptions={mapRenderOptions}
-        onJeepSelect={handleJeepSelect}
-        onMapReady={() => setMapReady(true)}
-      />
-
-      {driverMode ? <DriverTopBar /> : (
-        <header className="top-bar">
-          <div className="logo">
-            <span className="logo-mark">JT</span>
-            <span className="logo-text">JeepTrack Cebu</span>
-          </div>
-          <RouteChipBar routes={ROUTES} active={routeFilter} onSelect={setRouteFilter} />
-        </header>
-      )}
-
-      {!driverMode && (
-        <BottomSheet
-          nearbyCount={jeepViews.length}
-          jeeps={sheetJeeps}
-          selectedId={selectedJeepId}
-          onSelectJeep={(id) => {
-            setSelectedJeepId(id);
-            if (id) setSheetSnap('full');
-            else setSheetSnap('half');
-          }}
-          snap={sheetSnap}
-          onSnapChange={setSheetSnap}
-          lastUpdatedSec={lastUpdatedSec}
+      {!routesLoading && (
+        <CebuMap
+          geometries={geometries}
+          mapControllerRef={mapControllerRef}
+          mapRenderOptions={mapRenderOptions}
+          onJeepSelect={handleJeepPress}
+          onMapReady={() => setMapReady(true)}
         />
       )}
 
-      {driverMode && (
-        <DriverHUD
-          driver={driverSim.driverUI}
-          onToggleTrip={() => driverSim.setTripActive((v) => !v)}
-          onSimulateOffRoute={() => {
-            driverSim.simulateOffRoute();
-            setToastKey('off_route');
-          }}
-        />
+      {mapReady && !routesLoading && (
+        <>
+          {driverMode ? (
+            <DriverTopBar />
+          ) : (
+            <header className="top-bar">
+              <div className="logo">
+                <span className="logo-mark">JT</span>
+                <span className="logo-text">JeepTrack</span>
+              </div>
+              <RouteChipBar routes={ROUTES} active={routeFilter} onSelect={setRouteFilter} />
+            </header>
+          )}
+
+          {!driverMode && (
+            <BottomSheet
+              nearbyCount={jeepViews.length}
+              jeeps={sheetJeeps}
+              selectedId={selectedJeepId}
+              onSelectJeep={handleJeepPress}
+              snap={sheetSnap}
+              onSnapChange={setSheetSnap}
+              lastUpdatedSec={lastUpdatedSec}
+            />
+          )}
+
+          {driverMode && (
+            <DriverHUD
+              driver={driverSim.driverUI}
+              onToggleTrip={() => driverSim.setTripActive((v) => !v)}
+              onSimulateOffRoute={() => {
+                driverSim.simulateOffRoute();
+                setToastKey('off_route');
+              }}
+            />
+          )}
+
+          <ModeToggle
+            mode={mode}
+            onToggle={() => setMode((m) => (m === 'passenger' ? 'driver' : 'passenger'))}
+          />
+
+          <Toast messageKey={toastKey} onDismiss={() => setToastKey(null)} />
+        </>
       )}
-
-      <ModeToggle mode={mode} onToggle={() => setMode((m) => (m === 'passenger' ? 'driver' : 'passenger'))} />
-
-      <Toast messageKey={toastKey} onDismiss={() => setToastKey(null)} />
     </div>
   );
 }

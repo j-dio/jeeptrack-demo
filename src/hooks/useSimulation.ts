@@ -1,17 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as turf from '@turf/turf';
 import { ROUTES } from '../data/routes';
 import { createJeepneyFleet } from '../data/jeepneys';
 import type { DriverMapState, MapController, MapRenderOptions } from '../map/mapController';
 import type { Jeepney, RouteGeometry } from '../types';
-import { buildRouteGeometry, getCongestionAtKm } from '../utils/geometry';
+import { getCongestionAtKm } from '../utils/geometry';
 
 const UI_UPDATE_MS = 2000;
 
 function getLineForDirection(geometry: RouteGeometry, direction: Jeepney['direction']) {
-  if (direction === 'outbound') {
-    return turf.lineString(geometry.coordinates);
-  }
+  if (direction === 'outbound') return turf.lineString(geometry.coordinates);
   return turf.lineString([...geometry.coordinates].reverse());
 }
 
@@ -41,21 +39,22 @@ function updateAccelState(prevSpeed: number, speed: number): Jeepney['accelState
 export function useSimulation(
   mapControllerRef: React.RefObject<MapController | null>,
   driverMapStateRef: React.RefObject<DriverMapState | null>,
+  geometries: RouteGeometry[],
+  geometryByCode: Record<string, RouteGeometry>,
 ) {
-  const geometries = useMemo(() => ROUTES.map(buildRouteGeometry), []);
-  const geometryByCode = useMemo(
-    () => Object.fromEntries(geometries.map((g) => [g.route.code, g])),
-    [geometries],
-  );
-
-  const jeepneysRef = useRef<Jeepney[]>(createJeepneyFleet(ROUTES));
+  const jeepneysRef = useRef<Jeepney[]>([]);
   const initializedRef = useRef(false);
   const mapRenderOptionsRef = useRef<MapRenderOptions | null>(null);
   const lastUIUpdateRef = useRef(0);
   const pulsePhaseRef = useRef(0);
+  const rafRef = useRef<number>(0);
+  const lastFrameRef = useRef<number | null>(null);
+  const geometryByCodeRef = useRef(geometryByCode);
+  geometryByCodeRef.current = geometryByCode;
 
-  if (!initializedRef.current) {
-    jeepneysRef.current = jeepneysRef.current.map((jeep) => {
+  if (!initializedRef.current && geometries.length > 0) {
+    const fleet = createJeepneyFleet(ROUTES);
+    jeepneysRef.current = fleet.map((jeep) => {
       const geometry = geometryByCode[jeep.routeCode];
       if (!geometry) return jeep;
       const distanceAlongKm = Math.random() * geometry.pathLengthKm * 0.92;
@@ -74,8 +73,6 @@ export function useSimulation(
   }
 
   const [jeepneysUI, setJeepneysUI] = useState<Jeepney[]>(() => [...jeepneysRef.current]);
-  const rafRef = useRef<number>(0);
-  const lastFrameRef = useRef<number | null>(null);
 
   const setMapRenderOptions = useCallback((options: MapRenderOptions) => {
     mapRenderOptionsRef.current = options;
@@ -89,8 +86,10 @@ export function useSimulation(
       const timeSec = now / 1000;
       pulsePhaseRef.current = timeSec;
 
+      const byCode = geometryByCodeRef.current;
+
       const updated = jeepneysRef.current.map((jeep) => {
-        const geometry = geometryByCode[jeep.routeCode];
+        const geometry = byCode[jeep.routeCode];
         if (!geometry) return jeep;
 
         const outboundKm =
@@ -148,7 +147,7 @@ export function useSimulation(
           prevLng: jeep.lng,
           prevLat: jeep.lat,
           bearing: pos.bearing,
-          lastUpdated: now,
+          lastUpdated: Date.now(),
         };
       });
 
@@ -157,9 +156,7 @@ export function useSimulation(
       const controller = mapControllerRef.current;
       const renderOpts = mapRenderOptionsRef.current;
       if (controller?.isReady() && renderOpts) {
-        const driverState = renderOpts.driverMode
-          ? driverMapStateRef.current
-          : null;
+        const driverState = renderOpts.driverMode ? driverMapStateRef.current : null;
         controller.sync(updated, {
           ...renderOpts,
           driverState,
@@ -174,10 +171,11 @@ export function useSimulation(
 
       rafRef.current = requestAnimationFrame(step);
     },
-    [geometryByCode, mapControllerRef, driverMapStateRef],
+    [mapControllerRef, driverMapStateRef],
   );
 
   useEffect(() => {
+    if (!initializedRef.current) return;
     lastUIUpdateRef.current = 0;
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
@@ -185,11 +183,5 @@ export function useSimulation(
 
   const getJeepneys = useCallback(() => jeepneysRef.current, []);
 
-  return {
-    jeepneysUI,
-    getJeepneys,
-    geometries,
-    geometryByCode,
-    setMapRenderOptions,
-  };
+  return { jeepneysUI, getJeepneys, setMapRenderOptions };
 }

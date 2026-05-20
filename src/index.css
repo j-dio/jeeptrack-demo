@@ -129,26 +129,45 @@ body {
   bottom: 0;
   margin: 0 auto;
   max-width: 430px;
-  height: 92dvh;
+  height: 85dvh;
+  max-height: 85dvh;
   background: var(--surface);
   border-radius: 20px 20px 0 0;
   z-index: 20;
-  padding: 8px 16px 24px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding: 8px 16px 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.45);
-  overflow-y: auto;
-  touch-action: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .bottom-sheet-handle {
+  flex-shrink: 0;
   width: 48px;
   height: 4px;
   background: #4b5563;
   border-radius: 4px;
   margin: 4px auto 12px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.bottom-sheet-handle:active {
+  cursor: grabbing;
+}
+
+.bottom-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 .bottom-sheet-header {
+  flex-shrink: 0;
   margin-bottom: 12px;
 }
 
@@ -165,12 +184,6 @@ body {
 .sheet-summary-text {
   font-weight: 400;
   color: var(--text);
-}
-
-.sheet-updated {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--muted);
 }
 
 .jeep-list {
@@ -259,13 +272,21 @@ body {
   padding: 8px 0 16px;
 }
 
+.jeep-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
 .jeep-detail-badge {
   display: inline-block;
   padding: 8px 16px;
   border-radius: 999px;
   font-weight: 700;
   color: #0a0f1e;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .jeep-detail-title {
@@ -303,15 +324,28 @@ body {
 }
 
 .sheet-back {
-  margin-top: 16px;
-  width: 100%;
-  padding: 12px;
+  flex-shrink: 0;
+  margin: 0;
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #1f2937;
-  color: var(--text);
+  color: var(--muted);
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
+  font-family: inherit;
+  display: grid;
+  place-items: center;
+}
+
+.sheet-back:hover {
+  color: var(--text);
+  background: #374151;
 }
 
 .empty-state {
@@ -336,9 +370,10 @@ body {
 }
 
 .mode-fab--driver {
-  bottom: max(180px, calc(170px + env(safe-area-inset-bottom)));
+  bottom: max(200px, calc(188px + env(safe-area-inset-bottom)));
   background: var(--gold);
   color: #0a0f1e;
+  touch-action: manipulation;
 }
 
 .mode-fab--driver-active {
@@ -388,6 +423,7 @@ body {
   max-width: 430px;
   height: 160px;
   z-index: 25;
+  touch-action: manipulation;
   padding: 12px 16px max(12px, env(safe-area-inset-bottom));
   background: rgba(10, 15, 30, 0.92);
   backdrop-filter: blur(12px);
@@ -475,6 +511,7 @@ body {
 
 .driver-vehicle-marker {
   z-index: 5;
+  pointer-events: none;
 }
 
 .driver-vehicle-inner {

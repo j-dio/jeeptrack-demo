@@ -220,6 +220,7 @@ export function useDriverSimulation(geometry: RouteGeometry | undefined, enabled
       target.current = {
         position: snap.position,
         waitingStops: snap.waitingByStop,
+        tripActive: snap.tripActive,
       };
     },
     [],

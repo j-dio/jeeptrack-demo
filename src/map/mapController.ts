@@ -5,6 +5,7 @@ import { DRIVER_ROUTE_CODE, ROUTE_BY_CODE } from '../data/routes';
 export type DriverMapState = {
   position: { lng: number; lat: number; bearing: number } | null;
   waitingStops: { lng: number; lat: number; label: string; count: number }[];
+  tripActive: boolean;
 };
 
 export type MapRenderOptions = {
@@ -37,14 +38,14 @@ export function buildJeepFeatures(
   for (const jeep of jeepneys) {
     if (!isRouteVisible(visibleRoutes, jeep.routeCode)) continue;
 
-    const hideDriverJeepOnMap =
+    const hideDriverJeep =
       driverMode && jeep.routeCode === DRIVER_ROUTE_CODE && jeep.id === '04C-1';
-    if (hideDriverJeepOnMap) continue;
+    if (hideDriverJeep) continue;
 
     const route = ROUTE_BY_CODE[jeep.routeCode];
     let opacity = jeep.active ? 1 : 0.35;
     if (driverMode && jeep.routeCode !== DRIVER_ROUTE_CODE) {
-      opacity = jeep.active ? 0.15 : 0.08;
+      opacity = jeep.active ? 0.15 : 0.06;
     }
 
     features.push({
@@ -55,8 +56,9 @@ export function buildJeepFeatures(
         color: route?.color ?? '#FCD116',
         opacity,
         selected: jeep.id === selectedJeepId,
+        bearing: jeep.bearing ?? 0,
         decelerating: jeep.deceleratingNearStop,
-        pulse: options.pulsePhase,
+        arriving: jeep.deceleratingNearStop && jeep.speedKmh < 15,
       },
       geometry: {
         type: 'Point',
@@ -70,7 +72,7 @@ export function buildJeepFeatures(
 
 export function buildWaitingStopFeatures(
   driverState: DriverMapState | null,
-  pulsePhase: number,
+  _pulsePhase: number,
 ): FeatureCollection {
   if (!driverState?.waitingStops.length) {
     return { type: 'FeatureCollection', features: [] };
@@ -80,16 +82,8 @@ export function buildWaitingStopFeatures(
     type: 'FeatureCollection',
     features: driverState.waitingStops.map((stop, i) => ({
       type: 'Feature',
-      properties: {
-        count: stop.count,
-        label: stop.label,
-        pulse: pulsePhase,
-        id: `wait-${i}`,
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: [stop.lng, stop.lat],
-      },
+      properties: { count: stop.count, label: stop.label, id: `wait-${i}` },
+      geometry: { type: 'Point', coordinates: [stop.lng, stop.lat] },
     })),
   };
 }

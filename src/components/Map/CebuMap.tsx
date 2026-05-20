@@ -20,28 +20,50 @@ type CebuMapProps = {
   onMapReady?: () => void;
 };
 
-function offsetBehind(
-  lng: number,
-  lat: number,
-  bearingDeg: number,
-  km: number,
-): [number, number] {
-  const rad = ((bearingDeg + 180) * Math.PI) / 180;
-  const dLng = (km / 111.32) * Math.sin(rad) / Math.cos((lat * Math.PI) / 180);
-  const dLat = (km / 111.32) * Math.cos(rad);
-  return [lng + dLng, lat + dLat];
+/** Directional puck (wide tail, narrow nose) — reads as vehicle heading, not a boat. */
+function createJeepneyIconData(): ImageData {
+  const size = 36;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = '#ffffff';
+
+  const cx = size / 2;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, 6);
+  ctx.lineTo(cx + 9, 23);
+  ctx.quadraticCurveTo(cx, 29, cx - 9, 23);
+  ctx.closePath();
+  ctx.fill();
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
+function createUserMarkerElement(): HTMLDivElement {
+  const el = document.createElement('div');
+  el.className = 'user-location-marker';
+  el.innerHTML = `
+    <div class="user-marker-ring"></div>
+    <div class="user-marker-dot"></div>
+  `;
+  return el;
 }
 
 function createDriverMarkerElement(): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'driver-vehicle-marker';
-  el.innerHTML = `
-    <div class="driver-vehicle-inner">
-      <span class="driver-vehicle-arrow">▲</span>
-      <span class="driver-vehicle-code">04C</span>
-    </div>
-  `;
+  el.innerHTML = `<div class="driver-vehicle-inner"><div class="driver-vehicle-arrow"></div><span class="driver-vehicle-code">04C</span></div>`;
   return el;
+}
+
+function offsetBehind(lng: number, lat: number, bearingDeg: number, km: number): [number, number] {
+  const rad = ((bearingDeg + 180) * Math.PI) / 180;
+  const dLng = ((km / 111.32) * Math.sin(rad)) / Math.cos((lat * Math.PI) / 180);
+  const dLat = (km / 111.32) * Math.cos(rad);
+  return [lng + dLng, lat + dLat];
 }
 
 export function CebuMap({
@@ -57,12 +79,37 @@ export function CebuMap({
   const onJeepSelectRef = useRef(onJeepSelect);
   const onMapReadyRef = useRef(onMapReady);
   const driverMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const waitingMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const geometriesRef = useRef(geometries);
   const lastDriverEaseRef = useRef(0);
+  const lastFollowRef = useRef<{ lng: number; lat: number; bearing: number } | null>(null);
+  const driverFramedRef = useRef(false);
+  const followPausedUntilRef = useRef(0);
   const driverModeRef = useRef(mapRenderOptions.driverMode);
   driverModeRef.current = mapRenderOptions.driverMode;
 
+  const shouldFollowDriver = (
+    lng: number,
+    lat: number,
+    bearing: number,
+    tripActive: boolean,
+  ) => {
+    if (!tripActive) return false;
+    if (performance.now() < followPausedUntilRef.current) return false;
+
+    const prev = lastFollowRef.current;
+    if (!prev) return true;
+
+    const movedM =
+      Math.hypot((lng - prev.lng) * 111_320 * Math.cos((lat * Math.PI) / 180), (lat - prev.lat) * 111_320);
+    const bearingDelta = Math.abs(((bearing - prev.bearing + 540) % 360) - 180);
+    return movedM > 8 || bearingDelta > 4;
+  };
+
+  const pauseDriverFollow = () => {
+    followPausedUntilRef.current = performance.now() + 10_000;
+  };
   onJeepSelectRef.current = onJeepSelect;
   onMapReadyRef.current = onMapReady;
   geometriesRef.current = geometries;
@@ -73,13 +120,17 @@ export function CebuMap({
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/navigation-night-v1',
-      center: [123.8854, 10.3157],
-      zoom: 12.5,
-      pitch: 30,
+      center: [123.8954, 10.3157],
+      zoom: 13,
+      pitch: 35,
       attributionControl: false,
     });
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+    const pauseFollow = () => pauseDriverFollow();
+    map.on('dragstart', pauseFollow);
+    map.on('zoomstart', pauseFollow);
+    map.on('rotatestart', pauseFollow);
+    map.on('pitchstart', pauseFollow);
 
     const sync = (jeepneys: Jeepney[], options: MapRenderOptions) => {
       if (!readyRef.current) return;
@@ -87,25 +138,23 @@ export function CebuMap({
 
       for (const geometry of geoms) {
         const code = geometry.route.code;
-        const layerId = `route-line-${code}`;
-        if (!map.getLayer(layerId)) continue;
+        const lineId = `route-line-${code}`;
+        const casingId = `route-casing-${code}`;
+        if (!map.getLayer(lineId)) continue;
 
         if (options.driverMode) {
-          if (code === DRIVER_ROUTE_CODE) {
-            map.setPaintProperty(layerId, 'line-width', 5);
-            map.setPaintProperty(layerId, 'line-opacity', 1);
-            map.setLayoutProperty(layerId, 'visibility', 'visible');
-          } else {
-            map.setPaintProperty(layerId, 'line-width', 3);
-            map.setPaintProperty(layerId, 'line-opacity', 0.12);
-            map.setLayoutProperty(layerId, 'visibility', 'visible');
-          }
+          const isDriver = code === DRIVER_ROUTE_CODE;
+          map.setPaintProperty(lineId, 'line-width', isDriver ? 6 : 3);
+          map.setPaintProperty(lineId, 'line-opacity', isDriver ? 0.95 : 0.1);
+          map.setPaintProperty(casingId, 'line-opacity', isDriver ? 0.3 : 0.05);
         } else {
           const visible =
             options.visibleRoutes === 'all' || options.visibleRoutes.has(code);
-          map.setPaintProperty(layerId, 'line-width', 4);
-          map.setPaintProperty(layerId, 'line-opacity', 0.55);
-          map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+          map.setLayoutProperty(lineId, 'visibility', visible ? 'visible' : 'none');
+          map.setLayoutProperty(casingId, 'visibility', visible ? 'visible' : 'none');
+          map.setPaintProperty(lineId, 'line-width', 5);
+          map.setPaintProperty(lineId, 'line-opacity', 0.88);
+          map.setPaintProperty(casingId, 'line-opacity', 0.28);
         }
       }
 
@@ -115,58 +164,37 @@ export function CebuMap({
         features: buildJeepFeatures(jeepneys, geoms, options),
       });
 
-      const pulse = options.pulsePhase;
-      if (map.getLayer('jeep-circles')) {
-        map.setPaintProperty('jeep-circles', 'circle-radius', [
+      if (map.getLayer('jeep-glow')) {
+        map.setPaintProperty('jeep-glow', 'circle-radius', [
           'case',
-          ['==', ['get', 'selected'], true],
-          14,
-          ['==', ['get', 'decelerating'], true],
-          10 + 3 * Math.abs(Math.sin(pulse * 4)),
-          10,
+          ['==', ['get', 'selected'], true], 28,
+          ['==', ['get', 'arriving'], true], 22,
+          0,
         ]);
       }
 
-      if (map.getLayer('user-pin-layer')) {
+      if (map.getLayer('jeep-icons')) {
         map.setLayoutProperty(
-          'user-pin-layer',
+          'jeep-icons',
           'visibility',
           options.driverMode ? 'none' : 'visible',
         );
       }
 
-      if (map.getLayer('jeep-labels')) {
-        map.setLayoutProperty(
-          'jeep-labels',
-          'visibility',
-          options.driverMode ? 'none' : 'visible',
-        );
+      // Update user DOM marker position
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLngLat([options.userLocation.lng, options.userLocation.lat]);
+        userMarkerRef.current
+          .getElement()
+          .style.setProperty('display', options.driverMode ? 'none' : 'flex');
       }
-
-      const userSource = map.getSource('user-pin') as mapboxgl.GeoJSONSource | undefined;
-      userSource?.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'Point',
-          coordinates: [options.userLocation.lng, options.userLocation.lat],
-        },
-      });
 
       const waitSource = map.getSource('waiting-stops') as mapboxgl.GeoJSONSource | undefined;
-      waitSource?.setData(buildWaitingStopFeatures(options.driverState, pulse));
-
-      if (map.getLayer('waiting-circles')) {
-        map.setLayoutProperty(
-          'waiting-circles',
-          'visibility',
-          options.driverMode ? 'visible' : 'none',
-        );
-        map.setPaintProperty('waiting-circles', 'circle-radius', 5 + 2 * Math.abs(Math.sin(pulse * 3)));
-      }
+      waitSource?.setData(buildWaitingStopFeatures(options.driverState, options.pulsePhase));
 
       if (options.driverMode && options.driverState?.position) {
         const { lng, lat, bearing } = options.driverState.position;
+
         if (!driverMarkerRef.current) {
           const el = createDriverMarkerElement();
           driverMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'center' })
@@ -175,22 +203,34 @@ export function CebuMap({
         } else {
           driverMarkerRef.current.setLngLat([lng, lat]);
         }
+
         const inner = driverMarkerRef.current.getElement().querySelector('.driver-vehicle-inner');
         if (inner instanceof HTMLElement) {
           inner.style.transform = `rotate(${bearing}deg)`;
         }
 
+        const tripActive = options.driverState.tripActive;
+        if (!tripActive && !driverFramedRef.current) {
+          driverFramedRef.current = true;
+          const center = offsetBehind(lng, lat, bearing, 0.18);
+          map.jumpTo({ center, bearing, pitch: 45, zoom: 15.2 });
+        }
+
         const now = performance.now();
-        if (now - lastDriverEaseRef.current > 80) {
+        if (
+          shouldFollowDriver(lng, lat, bearing, tripActive) &&
+          now - lastDriverEaseRef.current > 450
+        ) {
           lastDriverEaseRef.current = now;
+          lastFollowRef.current = { lng, lat, bearing };
           const center = offsetBehind(lng, lat, bearing, 0.18);
           map.easeTo({
             center,
             bearing,
             pitch: 45,
             zoom: 15.2,
-            duration: 280,
-            essential: true,
+            duration: 600,
+            essential: false,
           });
         }
 
@@ -208,13 +248,15 @@ export function CebuMap({
           const marker = waitingMarkersRef.current[i];
           marker.setLngLat([stop.lng, stop.lat]);
           const el = marker.getElement();
-          el.innerHTML = `<span class="waiting-stop-dot"></span><span class="waiting-chip-label">${stop.count} waiting</span>`;
+          el.innerHTML = `<span class="waiting-stop-dot"></span><span class="waiting-chip-label">${stop.count}</span>`;
         });
       } else {
         driverMarkerRef.current?.remove();
         driverMarkerRef.current = null;
         waitingMarkersRef.current.forEach((m) => m.remove());
         waitingMarkersRef.current = [];
+        lastFollowRef.current = null;
+        driverFramedRef.current = false;
       }
     };
 
@@ -222,11 +264,15 @@ export function CebuMap({
       isReady: () => readyRef.current,
       sync,
       flyToJeep: (lng, lat) => {
-        map.flyTo({ center: [lng, lat], zoom: 14, speed: 1.2, essential: true });
+        map.flyTo({ center: [lng, lat], zoom: 14.5, speed: 1.4, essential: true });
       },
     };
 
     map.on('load', () => {
+      // Custom jeepney icon (SDF so it can be tinted with route color)
+      map.addImage('jeepney', createJeepneyIconData(), { sdf: true });
+
+      // Route layers: casing underneath colored line
       for (const geometry of geometries) {
         const code = geometry.route.code;
         map.addSource(`route-${code}`, {
@@ -237,113 +283,109 @@ export function CebuMap({
             geometry: { type: 'LineString', coordinates: geometry.coordinates },
           },
         });
+
+        map.addLayer({
+          id: `route-casing-${code}`,
+          type: 'line',
+          source: `route-${code}`,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#000000', 'line-width': 9, 'line-opacity': 0.28 },
+        });
+
         map.addLayer({
           id: `route-line-${code}`,
           type: 'line',
           source: `route-${code}`,
-          paint: {
-            'line-color': geometry.route.color,
-            'line-width': 4,
-            'line-opacity': 0.55,
-          },
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': geometry.route.color, 'line-width': 5, 'line-opacity': 0.88 },
         });
       }
 
+      // Jeep data source
       map.addSource('jeeps', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
+      // Glow for selected / arriving jeepneys
       map.addLayer({
-        id: 'jeep-circles',
+        id: 'jeep-glow',
         type: 'circle',
         source: 'jeeps',
         paint: {
-          'circle-radius': ['case', ['==', ['get', 'selected'], true], 14, 10],
+          'circle-radius': 0,
           'circle-color': ['get', 'color'],
-          'circle-opacity': ['get', 'opacity'],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#F9FAFB',
+          'circle-opacity': 0.22,
+          'circle-blur': 0.6,
         },
       });
 
+      // Jeepney icon (SDF, rotated by bearing)
       map.addLayer({
-        id: 'jeep-labels',
+        id: 'jeep-icons',
         type: 'symbol',
         source: 'jeeps',
         layout: {
-          'text-field': ['get', 'code'],
-          'text-size': 10,
-          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-          'text-allow-overlap': true,
+          'icon-image': 'jeepney',
+          'icon-size': [
+            'interpolate', ['linear'], ['zoom'],
+            11, 0.85,
+            14, 1.15,
+            16, 1.35,
+          ],
+          'icon-rotate': ['get', 'bearing'],
+          'icon-rotation-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
         },
         paint: {
-          'text-color': '#0a0f1e',
+          'icon-color': ['get', 'color'],
+          'icon-opacity': ['get', 'opacity'],
+          'icon-halo-color': 'rgba(255,255,255,0.9)',
+          'icon-halo-width': 2,
         },
       });
 
+      // Waiting stops for driver mode
       map.addSource('waiting-stops', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      map.addLayer({
-        id: 'waiting-circles',
-        type: 'circle',
-        source: 'waiting-stops',
-        layout: { visibility: 'none' },
-        paint: {
-          'circle-radius': 5,
-          'circle-color': '#FCD116',
-          'circle-opacity': 0.95,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#0a0f1e',
-        },
-      });
-
-      map.addSource('user-pin', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'Point', coordinates: [123.89327, 10.30966] },
-        },
-      });
-
-      map.addLayer({
-        id: 'user-pin-layer',
-        type: 'circle',
-        source: 'user-pin',
-        paint: {
-          'circle-radius': 8,
-          'circle-color': '#0038A8',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#FCD116',
-        },
-      });
+      // User location DOM marker (pulsing blue dot)
+      const userEl = createUserMarkerElement();
+      const fallbackPos = [123.89327, 10.30966] as [number, number];
+      userMarkerRef.current = new mapboxgl.Marker({ element: userEl, anchor: 'center' })
+        .setLngLat(fallbackPos)
+        .addTo(map);
 
       readyRef.current = true;
       mapControllerRef.current = controller;
       onMapReadyRef.current?.();
     });
 
-    map.on('click', 'jeep-circles', (e) => {
+    map.on('click', 'jeep-icons', (e) => {
       if (driverModeRef.current) return;
       const feature = e.features?.[0];
       const id = feature?.properties?.id;
       if (typeof id === 'string') onJeepSelectRef.current(id);
     });
 
-    map.on('mouseenter', 'jeep-circles', () => {
+    map.on('mouseenter', 'jeep-icons', () => {
       if (!driverModeRef.current) map.getCanvas().style.cursor = 'pointer';
     });
-    map.on('mouseleave', 'jeep-circles', () => {
+    map.on('mouseleave', 'jeep-icons', () => {
       map.getCanvas().style.cursor = '';
     });
 
     mapRef.current = map;
 
     return () => {
+      map.off('dragstart', pauseFollow);
+      map.off('zoomstart', pauseFollow);
+      map.off('rotatestart', pauseFollow);
+      map.off('pitchstart', pauseFollow);
+      userMarkerRef.current?.remove();
       driverMarkerRef.current?.remove();
       waitingMarkersRef.current.forEach((m) => m.remove());
       mapControllerRef.current = null;

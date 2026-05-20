@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { useRef } from 'react';
 import type { AppMode } from '../../types';
 
 type ModeToggleProps = {
@@ -8,15 +8,21 @@ type ModeToggleProps = {
 
 export function ModeToggle({ mode, onToggle }: ModeToggleProps) {
   const isDriver = mode === 'driver';
+  const ignoreClickUntilRef = useRef(0);
+
   return (
-    <motion.button
+    <button
       type="button"
       className={`mode-fab ${isDriver ? 'mode-fab--driver mode-fab--driver-active' : ''}`}
-      onClick={onToggle}
-      whileTap={{ scale: 0.94 }}
-      layout
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => {
+        const now = performance.now();
+        if (now < ignoreClickUntilRef.current) return;
+        ignoreClickUntilRef.current = now + 400;
+        onToggle();
+      }}
     >
       {isDriver ? '👤 Passenger' : '🚌 Driver'}
-    </motion.button>
+    </button>
   );
 }

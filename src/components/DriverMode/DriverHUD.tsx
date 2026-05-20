@@ -40,14 +40,22 @@ export function DriverHUD({ driver, onToggleTrip, onSimulateOffRoute }: DriverHU
       <button
         type="button"
         className={`driver-trip-btn ${driver.tripActive ? 'driver-trip-btn--active' : ''}`}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={onToggleTrip}
       >
         {driver.tripActive ? 'End Trip' : 'Start Trip'}
       </button>
 
-      <button type="button" className="driver-offroute-link" onClick={onSimulateOffRoute}>
-        Simulate off-route
-      </button>
+      {driver.tripActive && (
+        <button
+          type="button"
+          className="driver-offroute-link"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onSimulateOffRoute}
+        >
+          Simulate off-route
+        </button>
+      )}
     </div>
   );
 }

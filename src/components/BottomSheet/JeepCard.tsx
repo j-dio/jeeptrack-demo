@@ -10,9 +10,10 @@ type JeepCardProps = {
   onSelect: () => void;
   lastUpdatedSec: number;
   detail?: boolean;
+  onBack?: () => void;
 };
 
-export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail }: JeepCardProps) {
+export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail, onBack }: JeepCardProps) {
   const route = ROUTE_BY_CODE[jeep.routeCode];
   const copy = phrase(jeep.statusKey);
   const pulse = jeep.statusKey === 'arriving_soon';
@@ -20,13 +21,20 @@ export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail }: J
   if (detail) {
     return (
       <div className="jeep-detail">
-        <motion.div
-          className="jeep-detail-badge"
-          style={{ backgroundColor: route?.color }}
-          animate={pulse ? { scale: [1, 1.06, 1] } : {}}
-          transition={{ repeat: pulse ? Infinity : 0, duration: 1.2 }}
-        >
-          {jeep.routeCode}
+        <motion.div className="jeep-detail-head">
+          <motion.div
+            className="jeep-detail-badge"
+            style={{ backgroundColor: route?.color }}
+            animate={pulse ? { scale: [1, 1.06, 1] } : {}}
+            transition={{ repeat: pulse ? Infinity : 0, duration: 1.2 }}
+          >
+            {jeep.routeCode}
+          </motion.div>
+          {onBack && (
+            <button type="button" className="sheet-back" onClick={onBack} aria-label="Back to list">
+              ✕
+            </button>
+          )}
         </motion.div>
         <h2 className="jeep-detail-title">{route?.name}</h2>
         <p className="jeep-detail-driver">
