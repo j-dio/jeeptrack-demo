@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomSheet, useLastUpdatedSec, type SheetSnap } from './components/BottomSheet/BottomSheet';
-import { RouteChipBar } from './components/BottomSheet/RouteChip';
 import { DriverActionBar } from './components/DriverMode/DriverActionBar';
 import { DriverHUD } from './components/DriverMode/DriverHUD';
 import { DriverTopBar } from './components/DriverMode/DriverTopBar';
 import { DriverTopStrip } from './components/DriverMode/DriverTopStrip';
-import { Onboarding, readOnboardingSeen, markOnboardingSeen } from './components/Onboarding/Onboarding';
+import { AppHeader } from './components/Header/AppHeader';
+import { Onboarding, readOnboardingSeen, markOnboardingSeen, readPreferredRoute } from './components/Onboarding/Onboarding';
 import { ModeToggle } from './components/UI/ModeToggle';
 import { Spinner } from './components/UI/Spinner';
 import { Toast } from './components/UI/Toast';
@@ -27,7 +27,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [mode, setMode] = useState<AppMode>('passenger');
   const [mapReady, setMapReady] = useState(false);
-  const [routeFilter, setRouteFilter] = useState<string | 'all'>('all');
+  const [routeFilter, setRouteFilter] = useState<string | 'all'>(() => readPreferredRoute() ?? 'all');
   const [selectedJeepId, setSelectedJeepId] = useState<string | null>(null);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>('peek');
   const [toastKey, setToastKey] = useState<MicrocopyKey | null>(null);
@@ -146,6 +146,7 @@ export default function App() {
             setHasSeenOnboarding(true);
             setShowOnboarding(false);
           }}
+          onSelectRoute={(code) => setRouteFilter(code)}
         />
       </div>
     );
@@ -175,34 +176,12 @@ export default function App() {
           {driverMode ? (
             <DriverTopBar onShowIntro={() => setShowOnboarding(true)} />
           ) : (
-            <header className="top-bar">
-              <div className="top-bar-row">
-                <div className="logo">
-                  <img
-                    src="/jt-logo.svg"
-                    alt=""
-                    className="logo-img"
-                    width={160}
-                    height={48}
-                    decoding="async"
-                    aria-hidden
-                  />
-                  <span className="logo-text" aria-label="JeepTrack">
-                    <span className="logo-text-jeep">Jeep</span>
-                    <span className="logo-text-track">Track</span>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="intro-btn"
-                  onClick={() => setShowOnboarding(true)}
-                  aria-label="View intro and install help"
-                >
-                  Intro
-                </button>
-              </div>
-              <RouteChipBar routes={ROUTES} active={routeFilter} onSelect={setRouteFilter} />
-            </header>
+            <AppHeader
+              routes={ROUTES}
+              routeFilter={routeFilter}
+              onSelectRoute={setRouteFilter}
+              onShowOnboarding={() => setShowOnboarding(true)}
+            />
           )}
 
           {!driverMode && (

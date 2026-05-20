@@ -1,6 +1,9 @@
-import { Bus, Clock, MapPin, Navigation, Smartphone, Users } from 'lucide-react';
+import { Bus, Clock, MapPin, Smartphone, Users } from 'lucide-react';
+import { ROUTES } from '../../data/routes';
+import { RouteSearch } from './RouteSearch';
 
 const ONBOARDING_KEY = 'jeeptrack_onboarding_seen';
+const PREFERRED_ROUTE_KEY = 'jeeptrack_preferred_route';
 
 export function readOnboardingSeen(): boolean {
   try {
@@ -18,8 +21,25 @@ export function markOnboardingSeen(): void {
   }
 }
 
+export function readPreferredRoute(): string | null {
+  try {
+    return localStorage.getItem(PREFERRED_ROUTE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function savePreferredRoute(code: string): void {
+  try {
+    localStorage.setItem(PREFERRED_ROUTE_KEY, code);
+  } catch {
+    /* private mode */
+  }
+}
+
 type OnboardingProps = {
   onComplete: () => void;
+  onSelectRoute?: (code: string) => void;
 };
 
 const SERVICES = [
@@ -43,10 +63,16 @@ const SERVICES = [
   },
 ];
 
-export function Onboarding({ onComplete }: OnboardingProps) {
+export function Onboarding({ onComplete, onSelectRoute }: OnboardingProps) {
   const handleStart = () => {
     markOnboardingSeen();
     onComplete();
+  };
+
+  const handleRouteSelect = (code: string) => {
+    savePreferredRoute(code);
+    onSelectRoute?.(code);
+    handleStart();
   };
 
   return (
@@ -67,15 +93,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       </header>
 
       <div className="onboarding-content">
-        <div className="onboarding-search-card">
-          <span className="onboarding-search-icon" aria-hidden>
-            <Navigation size={20} strokeWidth={2.25} />
-          </span>
-          <div className="onboarding-search-copy">
-            <span className="onboarding-search-label">Where&apos;s your jeep?</span>
-            <span className="onboarding-search-sub">Track routes near Fuente Osmeña</span>
-          </div>
-        </div>
+        <RouteSearch routes={ROUTES} onSelect={handleRouteSelect} />
 
         <div className="onboarding-promo">
           <div className="onboarding-promo-copy">
