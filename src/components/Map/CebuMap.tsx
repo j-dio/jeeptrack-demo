@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
+import mapboxgl, { type MapEvent } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   buildJeepFeatures,
@@ -93,7 +93,7 @@ function CebuMapInner({
   };
 
   const pauseDriverFollow = () => {
-    followPausedUntilRef.current = performance.now() + 10_000;
+    followPausedUntilRef.current = performance.now() + 4_000;
   };
 
   useEffect(() => {
@@ -112,9 +112,13 @@ function CebuMapInner({
     });
     map.touchZoomRotate.disableRotation();
 
-    const pauseFollow = () => pauseDriverFollow();
-    map.on('dragstart', pauseFollow);
-    map.on('zoomstart', pauseFollow);
+    // Only pause follow on genuine user input — NOT programmatic easeTo/flyTo.
+    // Mapbox fires zoomstart/dragstart for both; originalEvent is set only for DOM events.
+    const pauseFollowOnUserInput = (e: MapEvent) => {
+      if ('originalEvent' in e && e.originalEvent != null) pauseDriverFollow();
+    };
+    map.on('dragstart', pauseFollowOnUserInput);
+    map.on('zoomstart', pauseFollowOnUserInput);
 
     const applyRouteStyles = (options: MapRenderOptions) => {
       const geoms = geometriesRef.current;
@@ -223,9 +227,11 @@ function CebuMapInner({
         }
 
         const now = performance.now();
+        // Throttle must exceed animation duration so animations don't overlap.
+        // on_trip: 500 ms animation → 700 ms throttle. idle: 300 ms → 700 ms.
         if (
           shouldFollowDriver(lng, lat, bearing, tripActive) &&
-          now - lastDriverEaseRef.current > 450
+          now - lastDriverEaseRef.current > 700
         ) {
           lastDriverEaseRef.current = now;
           lastFollowRef.current = { lng, lat, bearing };
@@ -235,7 +241,7 @@ function CebuMapInner({
             bearing,
             pitch: onTrip ? 50 : 35,
             zoom: onTrip ? 16 : 14.5,
-            duration: onTrip ? 600 : 800,
+            duration: onTrip ? 500 : 300,
             essential: false,
           });
         }
@@ -436,8 +442,8 @@ function CebuMapInner({
     mapRef.current = map;
 
     return () => {
-      map.off('dragstart', pauseFollow);
-      map.off('zoomstart', pauseFollow);
+      map.off('dragstart', pauseFollowOnUserInput);
+      map.off('zoomstart', pauseFollowOnUserInput);
       userMarkerRef.current?.remove();
       driverMarkerRef.current?.remove();
       waitingMarkersRef.current.forEach((m) => m.remove());

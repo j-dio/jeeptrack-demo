@@ -70,6 +70,7 @@ export function useDriverSimulation(
     waitingByStop: [],
     waitingAhead: 0,
     tripActive: false,
+    tripStatus: 'idle',
     isOffRoute: false,
   });
 
