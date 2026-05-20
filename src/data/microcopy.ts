@@ -14,6 +14,7 @@ export const MICROCOPY: Record<MicrocopyKey, MicrocopyPhrase> = {
   no_jeeps: { bisaya: "Wala pa'y sakyanan diri.", english: 'No rides found' },
   off_route: { bisaya: 'Layo na ka sa rota!', english: "You're off-route" },
   trip_started: { bisaya: 'Sakay na ta!', english: 'Trip started' },
+  trip_ended: { bisaya: 'Salamat sa pagdala!', english: 'Trip complete' },
   last_trip: { bisaya: 'Last trip na ni, dali!', english: 'Last trip — hurry!' },
 };
 

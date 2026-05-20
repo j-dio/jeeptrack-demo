@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icon.svg', 'jeeptrack-onboarding.svg', 'jeepney-marker.svg'],
+      includeAssets: ['favicon.svg', 'icon.svg', 'jt-logo.svg', 'jeeptrack-onboarding.svg', 'jeepney-marker.svg'],
       manifest: {
         name: 'JeepTrack Cebu',
         short_name: 'JeepTrack',

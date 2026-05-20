@@ -19,6 +19,8 @@ export type JeepneyUnitType = 'traditional' | 'modern';
 
 export type AccelState = 'cruising' | 'accelerating' | 'decelerating' | 'stationary';
 
+export type TripStatus = 'idle' | 'on_trip' | 'completed' | 'cancelled';
+
 export type RunDirection = 'outbound' | 'inbound';
 
 export type Jeepney = {
@@ -68,6 +70,7 @@ export type MicrocopyKey =
   | 'no_jeeps'
   | 'off_route'
   | 'trip_started'
+  | 'trip_ended'
   | 'last_trip';
 
 export type MicrocopyPhrase = { bisaya: string; english: string };

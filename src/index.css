@@ -476,7 +476,7 @@ body {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 84px;
   margin: 0 auto;
   max-width: 430px;
   height: 72dvh;
@@ -624,6 +624,134 @@ body {
   text-decoration: underline;
   cursor: pointer;
   padding: 4px 0;
+}
+
+/* Driver top strip — speed + next stop, always visible below top bar */
+.driver-top-strip {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  z-index: 14;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(10, 15, 30, 0.82);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  pointer-events: none;
+}
+.driver-strip-speed {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.driver-strip-speed-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1;
+}
+.driver-strip-speed-unit {
+  font-size: 11px;
+  color: var(--muted);
+}
+.driver-strip-nextstop {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.driver-strip-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.driver-strip-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.driver-strip-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Driver action bar — persistent Start/End/Cancel outside the sheet */
+.driver-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 430px;
+  margin: 0 auto;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(10, 15, 30, 0.92);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.driver-action-row {
+  display: flex;
+  gap: 10px;
+}
+.driver-action-btn {
+  flex: 1;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.driver-action-btn:active { opacity: 0.8; }
+.driver-action-btn--start {
+  background: var(--primary);
+  color: #fff;
+}
+.driver-action-btn--end {
+  background: var(--accent);
+  color: #fff;
+}
+.driver-action-btn--cancel {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+  flex: 0 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* Passenger pickup pins on driver map */
+.passenger-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  border: 2px solid rgba(255,255,255,0.9);
+  pointer-events: none;
+}
+.passenger-pin--waiting {
+  background: var(--gold);
+  color: #0a0f1e;
+  animation: wait-pulse 1.8s ease-in-out infinite;
+}
+.passenger-pin--onboard {
+  background: #4ade80;
+  color: #0a0f1e;
+  opacity: 0.5;
 }
 
 .driver-vehicle-marker {

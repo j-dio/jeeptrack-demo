@@ -58,6 +58,8 @@ function CebuMapInner({
   const driverMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const waitingMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const passengerMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const lastPassengerKeyRef = useRef('');
   const geometriesRef = useRef(geometries);
   const lastDriverEaseRef = useRef(0);
   const lastFollowRef = useRef<{ lng: number; lat: number; bearing: number } | null>(null);
@@ -77,9 +79,8 @@ function CebuMapInner({
     lng: number,
     lat: number,
     bearing: number,
-    tripActive: boolean,
+    _tripActive: boolean,
   ) => {
-    if (!tripActive) return false;
     if (performance.now() < followPausedUntilRef.current) return false;
 
     const prev = lastFollowRef.current;
@@ -168,11 +169,10 @@ function CebuMapInner({
       }
 
       if (map.getLayer('jeep-icons')) {
-        map.setLayoutProperty(
-          'jeep-icons',
-          'visibility',
-          options.driverMode ? 'none' : 'visible',
-        );
+        map.setLayoutProperty('jeep-icons', 'visibility', options.driverMode ? 'none' : 'visible');
+      }
+      if (map.getLayer('jeep-glow')) {
+        map.setLayoutProperty('jeep-glow', 'visibility', options.driverMode ? 'none' : 'visible');
       }
 
       if (userMarkerRef.current) {
@@ -213,10 +213,13 @@ function CebuMapInner({
         }
 
         const tripActive = options.driverState.tripActive;
-        if (!tripActive && !driverFramedRef.current) {
+        const tripStatus = options.driverState.tripStatus;
+        const onTrip = tripStatus === 'on_trip';
+
+        if (!driverFramedRef.current) {
           driverFramedRef.current = true;
           const center = offsetBehind(lng, lat, bearing, 0.18);
-          map.jumpTo({ center, bearing, pitch: 45, zoom: 15.2 });
+          map.jumpTo({ center, bearing, pitch: onTrip ? 50 : 35, zoom: onTrip ? 16 : 14.5 });
         }
 
         const now = performance.now();
@@ -230,10 +233,33 @@ function CebuMapInner({
           map.easeTo({
             center,
             bearing,
-            pitch: 45,
-            zoom: 15.2,
-            duration: 600,
+            pitch: onTrip ? 50 : 35,
+            zoom: onTrip ? 16 : 14.5,
+            duration: onTrip ? 600 : 800,
             essential: false,
+          });
+        }
+
+        // Passenger pickup pins
+        const pins = options.driverState.passengerPins ?? [];
+        const pinKey = pins.map((p) => `${p.id}:${p.status}`).join('|');
+        if (pinKey !== lastPassengerKeyRef.current) {
+          lastPassengerKeyRef.current = pinKey;
+          while (passengerMarkersRef.current.length < pins.length) {
+            const el = document.createElement('div');
+            el.className = 'passenger-pin';
+            const marker = new mapboxgl.Marker({ element: el, anchor: 'center' }).addTo(map);
+            passengerMarkersRef.current.push(marker);
+          }
+          while (passengerMarkersRef.current.length > pins.length) {
+            passengerMarkersRef.current.pop()?.remove();
+          }
+          pins.forEach((pin, i) => {
+            const marker = passengerMarkersRef.current[i];
+            marker.setLngLat([pin.lng, pin.lat]);
+            const el = marker.getElement();
+            el.className = `passenger-pin passenger-pin--${pin.status}`;
+            el.textContent = pin.initial;
           });
         }
 
@@ -262,8 +288,11 @@ function CebuMapInner({
         driverMarkerRef.current = null;
         waitingMarkersRef.current.forEach((m) => m.remove());
         waitingMarkersRef.current = [];
+        passengerMarkersRef.current.forEach((m) => m.remove());
+        passengerMarkersRef.current = [];
         lastFollowRef.current = null;
         lastWaitingKeyRef.current = '';
+        lastPassengerKeyRef.current = '';
         driverFramedRef.current = false;
       }
     };
@@ -273,6 +302,10 @@ function CebuMapInner({
       sync,
       flyToJeep: (lng, lat) => {
         map.flyTo({ center: [lng, lat], zoom: 14.5, speed: 1.4, essential: true });
+      },
+      resumeFollow: () => {
+        followPausedUntilRef.current = 0;
+        driverFramedRef.current = false;
       },
     };
 
@@ -408,6 +441,7 @@ function CebuMapInner({
       userMarkerRef.current?.remove();
       driverMarkerRef.current?.remove();
       waitingMarkersRef.current.forEach((m) => m.remove());
+      passengerMarkersRef.current.forEach((m) => m.remove());
       mapControllerRef.current = null;
       map.remove();
       mapRef.current = null;

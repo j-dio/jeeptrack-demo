@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { DriverMapState } from '../map/mapController';
 import * as turf from '@turf/turf';
+import { MOCK_PASSENGERS_04C } from '../data/mockPassengers';
 import { STOPS_BY_ROUTE } from '../data/stops';
 import { phrase } from '../data/microcopy';
-import type { AccelState, RouteGeometry } from '../types';
+import type { AccelState, RouteGeometry, TripStatus } from '../types';
 
 const UI_UPDATE_MS = 2000;
 const DRIVER_ROUTE = '04C';
@@ -19,6 +20,7 @@ export type DriverSnapshot = {
   waitingByStop: { lng: number; lat: number; label: string; count: number }[];
   waitingAhead: number;
   tripActive: boolean;
+  tripStatus: TripStatus;
   isOffRoute: boolean;
 };
 
@@ -71,7 +73,8 @@ export function useDriverSimulation(
     isOffRoute: false,
   });
 
-  const [tripActive, setTripActive] = useState(false);
+  const [tripStatus, setTripStatus] = useState<TripStatus>('idle');
+  const tripActive = tripStatus === 'on_trip';
   const [driverUI, setDriverUI] = useState<DriverSnapshot>(() => snapshotRef.current);
   const stopCountsRef = useRef<number[]>(
     randomWaitingCounts(STOPS_BY_ROUTE[DRIVER_ROUTE]?.length ?? 0),
@@ -135,6 +138,14 @@ export function useDriverSimulation(
         isOffRoute = distM > 200;
       }
 
+      const passengerPins = MOCK_PASSENGERS_04C.map((p) => ({
+        id: p.id,
+        lng: p.lng,
+        lat: p.lat,
+        initial: p.name.charAt(0),
+        status: p.status,
+      }));
+
       snapshotRef.current = {
         position: { lng, lat, bearing: Number.isFinite(bearing) ? bearing : 0 },
         speedKmh,
@@ -148,6 +159,7 @@ export function useDriverSimulation(
           ? waitingAhead(distanceKmRef.current, stopCountsRef.current, stopLocsRef.current)
           : 0,
         tripActive,
+        tripStatus,
         isOffRoute,
       };
 
@@ -156,6 +168,8 @@ export function useDriverSimulation(
           position: snapshotRef.current.position,
           waitingStops: snapshotRef.current.waitingByStop,
           tripActive: snapshotRef.current.tripActive,
+          tripStatus,
+          passengerPins,
         };
       }
 
@@ -209,6 +223,10 @@ export function useDriverSimulation(
     lastUIUpdateRef.current = 0;
   }, [tripActive, enabled, recomputeSnapshot]);
 
+  const startTrip = useCallback(() => setTripStatus('on_trip'), []);
+  const endTrip = useCallback(() => { setTripStatus('completed'); distanceKmRef.current = 0; }, []);
+  const cancelTrip = useCallback(() => { setTripStatus('idle'); distanceKmRef.current = 0; }, []);
+
   const simulateOffRoute = useCallback(() => {
     offRouteOffsetRef.current = [0.0028, 0.0022];
     recomputeSnapshot(performance.now());
@@ -226,8 +244,11 @@ export function useDriverSimulation(
   return {
     driverUI,
     getSnapshot,
+    tripStatus,
     tripActive,
-    setTripActive,
+    startTrip,
+    endTrip,
+    cancelTrip,
     simulateOffRoute,
     clearOffRoute,
     isOffRoute: snapshotRef.current.isOffRoute,

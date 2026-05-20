@@ -6,37 +6,28 @@ import type { DriverSnapshot } from '../../hooks/useDriverSimulation';
 
 type DriverHudSnap = 'peek' | 'half' | 'full';
 
-type DriverHUDProps = {
+type Props = {
   driver: DriverSnapshot;
-  onToggleTrip: () => void;
-  onSimulateOffRoute: () => void;
 };
 
-/** translateY pushes sheet down; larger y = less visible */
 const SNAP_Y: Record<DriverHudSnap, string> = {
-  peek: 'calc(72dvh - 196px)',
-  half: '38dvh',
-  full: '10dvh',
+  peek: 'calc(100dvh - 160px)',
+  half: '55dvh',
+  full: '12dvh',
 };
 
-export function DriverHUD({ driver, onToggleTrip, onSimulateOffRoute }: DriverHUDProps) {
+export function DriverHUD({ driver }: Props) {
   const [snap, setSnap] = useState<DriverHudSnap>('peek');
   const dragControls = useDragControls();
-
-  const distLabel =
-    driver.nextStopDistanceKm < 1
-      ? `${Math.round(driver.nextStopDistanceKm * 1000)} m`
-      : `${driver.nextStopDistanceKm.toFixed(1)} km`;
 
   const waiting = MOCK_PASSENGERS_04C.filter((p) => p.status === 'waiting');
   const onboard = MOCK_PASSENGERS_04C.filter((p) => p.status === 'onboard');
 
   const handleDragEnd = (_e: PointerEvent, info: PanInfo) => {
-    if (info.offset.y < -60) {
-      setSnap(snap === 'peek' ? 'half' : 'full');
-    } else if (info.offset.y > 60) {
-      setSnap(snap === 'full' ? 'half' : 'peek');
-    }
+    const flickUp = info.velocity.y < -250 || info.offset.y < -40;
+    const flickDown = info.velocity.y > 250 || info.offset.y > 40;
+    if (flickUp) setSnap(snap === 'peek' ? 'half' : 'full');
+    else if (flickDown) setSnap(snap === 'full' ? 'half' : 'peek');
   };
 
   return (
@@ -56,84 +47,42 @@ export function DriverHUD({ driver, onToggleTrip, onSimulateOffRoute }: DriverHU
         onPointerDown={(e) => dragControls.start(e)}
         role="button"
         tabIndex={0}
-        aria-label="Drag to expand driver panel"
+        aria-label="Drag to expand passenger list"
       />
 
-      <div className="driver-hud-metrics">
-        <div className="driver-metric-pill">
-          <span className="driver-metric-label">Speed</span>
-          <span className="driver-metric-value">{Math.round(driver.speedKmh)} km/h</span>
-        </div>
-        <div className="driver-metric-pill">
-          <span className="driver-metric-label">Status</span>
-          <span className="driver-metric-value driver-metric-value--sm">{driver.statusBisaya}</span>
-        </div>
-        <div className="driver-metric-pill">
-          <span className="driver-metric-label">Next stop</span>
-          <span className="driver-metric-value driver-metric-value--sm">
-            {driver.nextStopName} · {distLabel}
-          </span>
-        </div>
-      </div>
+      <button
+        type="button"
+        className="driver-passenger-heading driver-passenger-heading--tap"
+        onClick={() => setSnap(snap === 'peek' ? 'half' : snap)}
+      >
+        <Users size={16} strokeWidth={2.25} aria-hidden />
+        Route 04C passengers
+        <span className="driver-passenger-counts">
+          {onboard.length} onboard · {waiting.length} waiting
+        </span>
+      </button>
 
       <div className="driver-hud-body">
-        <div className="driver-passenger-section">
-          <button
-            type="button"
-            className="driver-passenger-heading driver-passenger-heading--tap"
-            onClick={() => setSnap(snap === 'peek' ? 'half' : snap)}
-          >
-            <Users size={16} strokeWidth={2.25} aria-hidden />
-            Route 04C passengers
-            <span className="driver-passenger-counts">
-              {onboard.length} onboard · {waiting.length} waiting
-            </span>
-          </button>
-          <ul className="driver-passenger-list">
-            {MOCK_PASSENGERS_04C.map((passenger) => (
-              <li key={passenger.id} className="driver-passenger-row">
-                <div>
-                  <span className="driver-passenger-name">{passenger.name}</span>
-                  <p className="driver-passenger-meta">
-                    {passenger.stop} · ₱{passenger.farePhp}
-                  </p>
-                </div>
-                <span
-                  className={`driver-passenger-status driver-passenger-status--${passenger.status}`}
-                >
-                  {passenger.status === 'onboard' ? 'Onboard' : 'Waiting'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ul className="driver-passenger-list">
+          {MOCK_PASSENGERS_04C.map((passenger) => (
+            <li key={passenger.id} className="driver-passenger-row">
+              <div>
+                <span className="driver-passenger-name">{passenger.name}</span>
+                <p className="driver-passenger-meta">
+                  {passenger.stop} · ₱{passenger.farePhp}
+                </p>
+              </div>
+              <span className={`driver-passenger-status driver-passenger-status--${passenger.status}`}>
+                {passenger.status === 'onboard' ? 'Onboard' : 'Waiting'}
+              </span>
+            </li>
+          ))}
+        </ul>
 
         {driver.tripActive && driver.waitingAhead > 0 && (
           <p className="driver-waiting-strip">
             {driver.waitingAhead} more waiting ahead on route
           </p>
-        )}
-      </div>
-
-      <div className="driver-hud-footer">
-        <button
-          type="button"
-          className={`driver-trip-btn ${driver.tripActive ? 'driver-trip-btn--active' : ''}`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onToggleTrip}
-        >
-          {driver.tripActive ? 'End Trip' : 'Start Trip'}
-        </button>
-
-        {driver.tripActive && (
-          <button
-            type="button"
-            className="driver-offroute-link"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={onSimulateOffRoute}
-          >
-            Simulate off-route
-          </button>
         )}
       </div>
     </motion.div>

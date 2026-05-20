@@ -1,11 +1,21 @@
 import type { Feature, FeatureCollection } from 'geojson';
-import type { Jeepney, RouteGeometry } from '../types';
+import type { Jeepney, RouteGeometry, TripStatus } from '../types';
 import { DRIVER_ROUTE_CODE, ROUTE_BY_CODE } from '../data/routes';
+
+export type PassengerPin = {
+  id: string;
+  lng: number;
+  lat: number;
+  initial: string;
+  status: 'waiting' | 'onboard';
+};
 
 export type DriverMapState = {
   position: { lng: number; lat: number; bearing: number } | null;
   waitingStops: { lng: number; lat: number; label: string; count: number }[];
   tripActive: boolean;
+  tripStatus: TripStatus;
+  passengerPins: PassengerPin[];
 };
 
 export type MapRenderOptions = {
@@ -21,6 +31,7 @@ export type MapController = {
   isReady: () => boolean;
   sync: (jeepneys: Jeepney[], options: MapRenderOptions) => void;
   flyToJeep: (lng: number, lat: number) => void;
+  resumeFollow: () => void;
 };
 
 function isRouteVisible(visibleRoutes: Set<string> | 'all', code: string): boolean {

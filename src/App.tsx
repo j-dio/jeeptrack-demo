@@ -1,8 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomSheet, useLastUpdatedSec, type SheetSnap } from './components/BottomSheet/BottomSheet';
 import { RouteChipBar } from './components/BottomSheet/RouteChip';
+import { DriverActionBar } from './components/DriverMode/DriverActionBar';
 import { DriverHUD } from './components/DriverMode/DriverHUD';
 import { DriverTopBar } from './components/DriverMode/DriverTopBar';
+import { DriverTopStrip } from './components/DriverMode/DriverTopStrip';
 import { Onboarding, readOnboardingSeen, markOnboardingSeen } from './components/Onboarding/Onboarding';
 import { ModeToggle } from './components/UI/ModeToggle';
 import { Spinner } from './components/UI/Spinner';
@@ -112,6 +114,11 @@ export default function App() {
   }, [driverSim.driverUI.isOffRoute]);
 
   useEffect(() => {
+    if (driverSim.tripStatus === 'on_trip') setToastKey('trip_started');
+    else if (driverSim.tripStatus === 'completed') setToastKey('trip_ended');
+  }, [driverSim.tripStatus]);
+
+  useEffect(() => {
     if (mode === 'driver') {
       setRouteFilter(DRIVER_ROUTE_CODE);
       setSelectedJeepId(null);
@@ -211,14 +218,22 @@ export default function App() {
           )}
 
           {driverMode && (
-            <DriverHUD
-              driver={driverSim.driverUI}
-              onToggleTrip={() => driverSim.setTripActive((v) => !v)}
-              onSimulateOffRoute={() => {
-                driverSim.simulateOffRoute();
-                setToastKey('off_route');
-              }}
-            />
+            <>
+              <DriverTopStrip
+                speedKmh={driverSim.driverUI.speedKmh}
+                nextStopName={driverSim.driverUI.nextStopName}
+                nextStopDistanceKm={driverSim.driverUI.nextStopDistanceKm}
+                tripStatus={driverSim.tripStatus}
+              />
+              <DriverHUD driver={driverSim.driverUI} />
+              <DriverActionBar
+                tripStatus={driverSim.tripStatus}
+                onStartTrip={driverSim.startTrip}
+                onEndTrip={driverSim.endTrip}
+                onCancelTrip={driverSim.cancelTrip}
+                onSimulateOffRoute={() => { driverSim.simulateOffRoute(); setToastKey('off_route'); }}
+              />
+            </>
           )}
 
           <ModeToggle
