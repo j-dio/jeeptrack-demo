@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import type { DriverMapState } from '../map/mapController';
 import * as turf from '@turf/turf';
 import { STOPS_BY_ROUTE } from '../data/stops';
 import { phrase } from '../data/microcopy';
@@ -69,7 +70,11 @@ function waitingAhead(
   return sum;
 }
 
-export function useDriverSimulation(geometry: RouteGeometry | undefined, enabled: boolean) {
+export function useDriverSimulation(
+  geometry: RouteGeometry | undefined,
+  enabled: boolean,
+  driverMapStateRef?: MutableRefObject<DriverMapState | null>,
+) {
   const distanceKmRef = useRef(0);
   const offRouteOffsetRef = useRef<[number, number] | null>(null);
   const lastFrameRef = useRef<number | null>(null);
@@ -150,12 +155,20 @@ export function useDriverSimulation(geometry: RouteGeometry | undefined, enabled
         isOffRoute,
       };
 
+      if (driverMapStateRef) {
+        driverMapStateRef.current = {
+          position: snapshotRef.current.position,
+          waitingStops: snapshotRef.current.waitingByStop,
+          tripActive: snapshotRef.current.tripActive,
+        };
+      }
+
       if (now - lastUIUpdateRef.current >= UI_UPDATE_MS) {
         lastUIUpdateRef.current = now;
         setDriverUI({ ...snapshotRef.current });
       }
     },
-    [geometry, tripActive],
+    [geometry, tripActive, driverMapStateRef],
   );
 
   useEffect(() => {
@@ -214,22 +227,9 @@ export function useDriverSimulation(geometry: RouteGeometry | undefined, enabled
 
   const getSnapshot = useCallback(() => snapshotRef.current, []);
 
-  const syncMapStateRef = useCallback(
-    (target: { current: import('../map/mapController').DriverMapState | null }) => {
-      const snap = snapshotRef.current;
-      target.current = {
-        position: snap.position,
-        waitingStops: snap.waitingByStop,
-        tripActive: snap.tripActive,
-      };
-    },
-    [],
-  );
-
   return {
     driverUI,
     getSnapshot,
-    syncMapStateRef,
     tripActive,
     setTripActive,
     simulateOffRoute,

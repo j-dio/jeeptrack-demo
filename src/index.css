@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
   --primary: #0038a8;
   --accent: #ce1126;
@@ -66,6 +68,39 @@ body {
 }
 
 .top-bar > * {
+  pointer-events: auto;
+}
+
+.top-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.intro-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(17, 24, 39, 0.85);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.intro-btn--compact {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.driver-top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   pointer-events: auto;
 }
 
@@ -354,6 +389,9 @@ body {
 }
 
 .mode-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   position: fixed;
   right: 16px;
   bottom: max(110px, calc(100px + env(safe-area-inset-bottom)));
@@ -370,7 +408,7 @@ body {
 }
 
 .mode-fab--driver {
-  bottom: max(200px, calc(188px + env(safe-area-inset-bottom)));
+  bottom: max(220px, calc(208px + env(safe-area-inset-bottom)));
   background: var(--gold);
   color: #0a0f1e;
   touch-action: manipulation;
@@ -421,20 +459,56 @@ body {
   bottom: 0;
   margin: 0 auto;
   max-width: 430px;
-  height: 160px;
+  height: 72dvh;
+  max-height: 72dvh;
   z-index: 25;
   touch-action: manipulation;
-  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
-  background: rgba(10, 15, 30, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  padding: 8px 16px 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.45);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: hidden;
+}
+
+.driver-hud-handle {
+  flex-shrink: 0;
+  width: 48px;
+  height: 4px;
+  background: #4b5563;
+  border-radius: 4px;
+  margin: 4px auto 4px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.driver-hud-handle:active {
+  cursor: grabbing;
+}
+
+.driver-hud-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.driver-hud-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  padding-bottom: max(4px, env(safe-area-inset-bottom));
 }
 
 .driver-hud-metrics {
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: 1fr 1fr 1.2fr;
   gap: 8px;
@@ -467,6 +541,30 @@ body {
   font-weight: 600;
 }
 
+.driver-passenger-section {
+  margin-bottom: 4px;
+}
+
+.driver-passenger-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.driver-passenger-heading svg {
+  color: var(--gold);
+}
+
+.driver-passenger-counts {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .driver-waiting-strip {
   margin: 0;
   padding: 6px 10px;
@@ -496,9 +594,8 @@ body {
 }
 
 .driver-offroute-link {
-  position: absolute;
-  right: 16px;
-  bottom: max(14px, env(safe-area-inset-bottom));
+  position: static;
+  align-self: flex-end;
   border: none;
   background: none;
   color: var(--muted);
@@ -506,7 +603,7 @@ body {
   font-family: inherit;
   text-decoration: underline;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 0;
 }
 
 .driver-vehicle-marker {
@@ -635,6 +732,311 @@ body {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+/* Onboarding — JeepTrack logo palette (Jeep blue + Track navy) */
+.onboarding-screen {
+  --jt-jeep: #0099ff;
+  --jt-jeep-dark: #007acc;
+  --jt-navy: #0a3d62;
+  --jt-navy-deep: #062a45;
+  --jt-sky: #e8f4fd;
+  --jt-sky-mid: #cce8ff;
+  --jt-ice: #f5faff;
+  --jt-muted: #5b7a94;
+
+  position: relative;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 430px;
+  margin: 0 auto;
+  background: var(--jt-ice);
+  overflow: hidden;
+  overflow-y: auto;
+}
+
+.onboarding-header {
+  position: relative;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #ffffff 0%, var(--jt-sky) 100%);
+  padding: max(20px, env(safe-area-inset-top)) 20px 40px;
+}
+
+.onboarding-header-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.onboarding-logo-img {
+  width: min(300px, 82vw);
+  height: auto;
+  object-fit: contain;
+}
+
+.onboarding-welcome {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--jt-navy);
+  letter-spacing: -0.01em;
+}
+
+.onboarding-header-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 28px;
+  background: var(--jt-ice);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -4px 20px rgba(10, 61, 98, 0.06);
+}
+
+.onboarding-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 20px max(24px, env(safe-area-inset-bottom));
+}
+
+.onboarding-search-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 153, 255, 0.12);
+  box-shadow:
+    0 1px 2px rgba(10, 61, 98, 0.05),
+    0 8px 24px rgba(0, 153, 255, 0.1);
+}
+
+.onboarding-search-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--jt-sky);
+  color: var(--jt-jeep);
+}
+
+.onboarding-search-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.onboarding-search-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--jt-navy-deep);
+}
+
+.onboarding-search-sub {
+  font-size: 13px;
+  color: var(--jt-muted);
+}
+
+.onboarding-promo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--jt-sky) 0%, var(--jt-sky-mid) 100%);
+  border: 1px solid rgba(0, 153, 255, 0.2);
+}
+
+.onboarding-promo-kicker {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--jt-jeep-dark);
+}
+
+.onboarding-promo-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--jt-navy);
+  max-width: 240px;
+}
+
+.onboarding-promo-badge {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--jt-jeep);
+  box-shadow: 0 4px 12px rgba(0, 153, 255, 0.15);
+}
+
+.onboarding-services {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding-services-title {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--jt-navy-deep);
+}
+
+.onboarding-services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.onboarding-service-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  min-height: 108px;
+}
+
+.onboarding-service-card--jeep {
+  background: var(--jt-sky);
+  color: var(--jt-jeep);
+}
+
+.onboarding-service-card--sky {
+  background: var(--jt-sky-mid);
+  color: var(--jt-jeep-dark);
+}
+
+.onboarding-service-card--navy {
+  background: linear-gradient(160deg, #d6ebff 0%, #b8dcff 100%);
+  color: var(--jt-navy);
+}
+
+.onboarding-service-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--jt-navy-deep);
+}
+
+.onboarding-service-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--jt-muted);
+}
+
+.onboarding-cta {
+  @apply mt-2 w-full rounded-2xl border-0 px-6 py-4 text-base font-bold text-white transition-transform duration-150 ease-out active:scale-[0.97];
+  background: linear-gradient(180deg, var(--jt-jeep) 0%, var(--jt-navy) 100%);
+  box-shadow:
+    0 6px 0 var(--jt-navy-deep),
+    0 10px 28px rgba(0, 153, 255, 0.35);
+}
+
+.onboarding-cta:active {
+  box-shadow:
+    0 2px 0 var(--jt-navy-deep),
+    0 4px 14px rgba(0, 153, 255, 0.28);
+}
+
+.onboarding-hint {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--jt-muted);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.onboarding-hint svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--jt-jeep);
+}
+
+.jeepney-map-marker {
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+.driver-passenger-heading--tap {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.driver-passenger-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.driver-passenger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #1f2937;
+  font-size: 13px;
+}
+
+.driver-passenger-name {
+  font-weight: 600;
+}
+
+.driver-passenger-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.driver-passenger-status {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.driver-passenger-status--waiting {
+  background: rgba(252, 209, 22, 0.15);
+  color: var(--gold);
+}
+
+.driver-passenger-status--onboard {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
 }
 
 .token-missing {

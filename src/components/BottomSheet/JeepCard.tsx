@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { phrase } from '../../data/microcopy';
 import { ROUTE_BY_CODE } from '../../data/routes';
 import { formatFare } from '../../utils/fare';
@@ -32,7 +33,7 @@ export function JeepCard({ jeep, selected, onSelect, lastUpdatedSec, detail, onB
           </motion.div>
           {onBack && (
             <button type="button" className="sheet-back" onClick={onBack} aria-label="Back to list">
-              ✕
+              <X size={20} strokeWidth={2.25} />
             </button>
           )}
         </motion.div>

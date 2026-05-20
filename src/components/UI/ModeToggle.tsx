@@ -1,3 +1,4 @@
+import { Bus, User } from 'lucide-react';
 import { useRef } from 'react';
 import type { AppMode } from '../../types';
 
@@ -22,7 +23,17 @@ export function ModeToggle({ mode, onToggle }: ModeToggleProps) {
         onToggle();
       }}
     >
-      {isDriver ? '👤 Passenger' : '🚌 Driver'}
+      {isDriver ? (
+        <>
+          <User size={18} strokeWidth={2.25} aria-hidden />
+          Passenger
+        </>
+      ) : (
+        <>
+          <Bus size={18} strokeWidth={2.25} aria-hidden />
+          Driver
+        </>
+      )}
     </button>
   );
 }

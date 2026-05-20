@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomSheet, useLastUpdatedSec, type SheetSnap } from './components/BottomSheet/BottomSheet';
 import { RouteChipBar } from './components/BottomSheet/RouteChip';
 import { DriverHUD } from './components/DriverMode/DriverHUD';
 import { DriverTopBar } from './components/DriverMode/DriverTopBar';
-import { CebuMap } from './components/Map/CebuMap';
+import { Onboarding, readOnboardingSeen, markOnboardingSeen } from './components/Onboarding/Onboarding';
 import { ModeToggle } from './components/UI/ModeToggle';
 import { Spinner } from './components/UI/Spinner';
 import { Toast } from './components/UI/Toast';
@@ -16,7 +16,13 @@ import { useUserLocation } from './hooks/useUserLocation';
 import type { DriverMapState, MapController, MapRenderOptions } from './map/mapController';
 import type { AppMode, MicrocopyKey } from './types';
 
+const CebuMap = lazy(() =>
+  import('./components/Map/CebuMap').then((m) => ({ default: m.CebuMap })),
+);
+
 export default function App() {
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(readOnboardingSeen);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [mode, setMode] = useState<AppMode>('passenger');
   const [mapReady, setMapReady] = useState(false);
   const [routeFilter, setRouteFilter] = useState<string | 'all'>('all');
@@ -40,7 +46,8 @@ export default function App() {
   const lastUpdatedSec = useLastUpdatedSec(jeepneysUI);
 
   const driverGeometry = geometryByCode[DRIVER_ROUTE_CODE];
-  const driverSim = useDriverSimulation(driverGeometry, mode === 'driver');
+  const driverMode = mode === 'driver';
+  const driverSim = useDriverSimulation(driverGeometry, driverMode, driverMapStateRef);
 
   const jeepViews = useJeepneyViews(jeepneysUI, geometryByCode, userLocation, routeFilter);
 
@@ -63,39 +70,25 @@ export default function App() {
     return new Set([routeFilter]);
   }, [routeFilter]);
 
-  const driverMode = mode === 'driver';
+  const mapRenderOptionsRef = useRef<MapRenderOptions>({
+    visibleRoutes: 'all',
+    selectedJeepId: null,
+    driverMode: false,
+    driverState: null,
+    userLocation: { lng: 0, lat: 0 },
+    pulsePhase: 0,
+  });
 
-  const mapRenderOptions: MapRenderOptions = useMemo(
-    () => ({
-      visibleRoutes,
-      selectedJeepId,
-      driverMode,
-      driverState: null,
-      userLocation,
-      pulsePhase: 0,
-    }),
-    [visibleRoutes, selectedJeepId, driverMode, userLocation],
-  );
+  mapRenderOptionsRef.current = {
+    visibleRoutes,
+    selectedJeepId,
+    driverMode,
+    driverState: null,
+    userLocation,
+    pulsePhase: 0,
+  };
+  setMapRenderOptions(mapRenderOptionsRef.current);
 
-  useEffect(() => {
-    setMapRenderOptions(mapRenderOptions);
-  }, [mapRenderOptions, setMapRenderOptions]);
-
-  useEffect(() => {
-    if (!driverMode) {
-      driverMapStateRef.current = null;
-      return;
-    }
-    let raf = 0;
-    const tick = () => {
-      driverSim.syncMapStateRef(driverMapStateRef);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [driverMode, driverSim]);
-
-  /** First tap: select + half sheet. Second tap on same jeep: open detail. */
   const handleJeepPress = useCallback(
     (id: string | null) => {
       if (id === null) {
@@ -145,31 +138,58 @@ export default function App() {
     );
   }
 
+  if (!hasSeenOnboarding || showOnboarding) {
+    return (
+      <div className="app-shell">
+        <Onboarding
+          onComplete={() => {
+            markOnboardingSeen();
+            setHasSeenOnboarding(true);
+            setShowOnboarding(false);
+          }}
+        />
+      </div>
+    );
+  }
+
   const showSpinner = routesLoading || !mapReady;
+  const mountMap = !routesLoading;
 
   return (
     <div className="app-shell">
       {showSpinner && <Spinner />}
 
-      {!routesLoading && (
-        <CebuMap
-          geometries={geometries}
-          mapControllerRef={mapControllerRef}
-          mapRenderOptions={mapRenderOptions}
-          onJeepSelect={handleJeepPress}
-          onMapReady={() => setMapReady(true)}
-        />
+      {mountMap && (
+        <Suspense fallback={null}>
+          <CebuMap
+            geometries={geometries}
+            mapControllerRef={mapControllerRef}
+            driverMode={driverMode}
+            onJeepSelect={handleJeepPress}
+            onMapReady={() => setMapReady(true)}
+          />
+        </Suspense>
       )}
 
       {mapReady && !routesLoading && (
         <>
           {driverMode ? (
-            <DriverTopBar />
+            <DriverTopBar onShowIntro={() => setShowOnboarding(true)} />
           ) : (
             <header className="top-bar">
-              <div className="logo">
-                <span className="logo-mark">JT</span>
-                <span className="logo-text">JeepTrack</span>
+              <div className="top-bar-row">
+                <div className="logo">
+                  <span className="logo-mark">JT</span>
+                  <span className="logo-text">JeepTrack</span>
+                </div>
+                <button
+                  type="button"
+                  className="intro-btn"
+                  onClick={() => setShowOnboarding(true)}
+                  aria-label="View intro and install help"
+                >
+                  Intro
+                </button>
               </div>
               <RouteChipBar routes={ROUTES} active={routeFilter} onSelect={setRouteFilter} />
             </header>
